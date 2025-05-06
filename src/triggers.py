@@ -56,8 +56,8 @@ def process_wake_word(porcupine, audio_stream):
     # Check if bypass mode expired
     if bypass_active and time.time() > bypass_end_time:
         bypass_active = False
-        from sounds import play_bypass_cancel_sound
-        play_bypass_cancel_sound()
+        #from sounds import play_bypass_cancel_sound
+        #play_bypass_cancel_sound()
     
     # If wake word detected
     if keyword_index >= 0:
