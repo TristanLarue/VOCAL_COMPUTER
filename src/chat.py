@@ -6,8 +6,7 @@ import openai
 from dotenv import load_dotenv
 
 from utils import log, Colors
-from transcribe import save_wav, transcribe_audio, initialize_whisper, get_prompt_end_time
-from memory import update_memory
+from transcribe import save_wav, transcribe_audio, initialize_whisper, get_prompt_end_time, start_continuous_recording
 
 # Load environment variables
 load_dotenv()
@@ -32,6 +31,7 @@ Important guidelines:
 - When the question is short or simple do not say anything other than the raw answer of his question
 - Do not propose anything to Tristan, let him ask you his next question himself
 - Do not use any discourse markers at the start of your response
+- When a conversation is coming to an end (user says goodbye, thank you, or indicates they're done), use the [/exit:None] command to end the session
 
 COMMAND SYSTEM:
 You can execute commands by including them in your response using the following format: [/command:parameter]
@@ -44,12 +44,14 @@ Available commands include:
 - [/search:query] - Search the web for information
 - [/reminder:text] - Add a reminder with the specified text
 - [/news:topic] - Get latest news on topic
+- [/exit:None] - End the conversation and return to wake word mode
 
 EXAMPLES:
 - "The temperature in [/weather:New York] is currently 72°F"
 - "I've set a [/timer:5] minute timer for your pasta"
 - "I've added that to your [/calendar:add] for tomorrow at 3pm"
 - "Let me [/search:population of France] for you"
+- "Goodbye then, have a great day! [/exit:None]"
 
 Include commands naturally in your responses when they're relevant to answering Tristan's questions.
 
@@ -65,17 +67,6 @@ chat_end = 0
 
 # Global whisper model - pre-load during import
 whisper_model = initialize_whisper()
-log("Whisper model initialized during import", "INFO")
-
-# Pre-initialize pygame mixer to avoid delay during first response
-try:
-    import pygame
-    pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
-    # Suppress pygame welcome message
-    os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
-    log("Pygame mixer pre-initialized", "INFO")
-except ImportError:
-    log("Pygame import failed during chat module initialization", "ERROR")
 
 def extract_commands(text):
     """Extract commands from text and return both cleaned text and command list"""
@@ -138,9 +129,16 @@ def process_voice_query(frames, pa, audio_stream):
     
     # Transcribe the recorded audio
     query = transcribe_audio("temp.wav", whisper_model)
-    os.remove("temp.wav")
+    
+    # Clean up temp file
+    try:
+        os.remove("temp.wav")
+    except:
+        pass
     
     if not query:
+        # If no query was detected, restart continuous recording
+        start_continuous_recording(audio_stream, pa)
         return
     
     log(f"Query: {Colors.BOLD}{query}{Colors.ENDC}", "SUCCESS")
@@ -160,19 +158,30 @@ def process_voice_query(frames, pa, audio_stream):
     # Update memory with new conversation
     threading.Thread(target=update_memory, args=(query, answer), daemon=True).start()
     
+    # Import here to avoid circular imports
+    from commands import execute_command
+    
+    # Clean text and extract commands
+    clean_text, commands = extract_commands(answer)
+    
+    log(f"Speaking: {Colors.BOLD}{clean_text}{Colors.ENDC}", "INFO")
+    if commands:
+        log(f"Commands detected: {len(commands)}", "COMMAND")
+    
+    # Execute commands if any
+    for cmd, param in commands:
+        result = execute_command(cmd, param, audio_stream)
+        log(f"Command result: {result}", "COMMAND")
+        
+        # If this is an exit command, we should stop TTS immediately
+        if cmd.lower() == "exit":
+            return True  # Signal interruption to stop further processing
+
     # Speak the response and check if interrupted
-    interrupted = speak_text(answer, audio_stream)
+    interrupted = speak_text(clean_text, audio_stream)
     
-    # If user interrupted, we'll immediately handle their next query
-    if not interrupted:
-        # Enable bypass mode for follow-up questions
-        from triggers import set_bypass_mode
-        set_bypass_mode(True)
-    
-    # Immediately start listening for the next query if interrupted
-    if interrupted:
-        # Small pause to let user start speaking
-        time.sleep(0.2)
-        from transcribe import record_audio
-        new_frames = record_audio(audio_stream)
-        process_voice_query(new_frames, pa, audio_stream)
+    # After speech has finished (or if interrupted), make sure continuous recording is active
+    start_continuous_recording(audio_stream, pa)
+
+# Import the update_memory function directly to avoid circular imports
+from memory import update_memory

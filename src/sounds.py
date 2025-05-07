@@ -9,7 +9,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 
 from utils import log, Colors
-from transcribe import get_prompt_end_time, SILENCE_THRESHOLD
+from transcribe import get_prompt_end_time, SILENCE_THRESHOLD, set_ai_speaking_state
 
 # Initialize pygame for audio playback - use a smaller buffer for faster response
 pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
@@ -25,6 +25,26 @@ TTS_SPEED = 1.0  # 1.0 is normal speed
 # Timing metrics
 tts_start = 0
 tts_end = 0
+
+# Global state for speech control
+current_speech_channel = None
+speech_interrupted = threading.Event()
+
+def reset_speech_state():
+    """Reset all speech-related state variables"""
+    global current_speech_channel, speech_interrupted
+    speech_interrupted.set()  # Ensure any pending speech is stopped
+    
+    if current_speech_channel and current_speech_channel.get_busy():
+        current_speech_channel.stop()
+    
+    current_speech_channel = None
+    speech_interrupted.clear()  # Reset for future use
+    
+    # Make sure AI is marked as not speaking
+    set_ai_speaking_state(False)
+    
+    log("Speech state has been reset", "INFO")
 
 def play_sound(filename, blocking=False):
     """Play a sound file from the assets directory"""
@@ -44,13 +64,17 @@ def play_prompt_sound():
     """Play sound to indicate the system is processing - non-blocking"""
     play_sound("prompting.wav", blocking=False)
 
-def play_bypass_start_sound():
-    """Play sound to indicate bypass mode started - non-blocking"""
-    play_sound("bypass_start.wav", blocking=False)
-
-def play_bypass_cancel_sound():
-    """Play sound to indicate bypass mode ended - non-blocking"""
-    play_sound("bypass_cancel.wav", blocking=False)
+def stop_current_speech():
+    """Immediately stop any currently playing speech"""
+    global current_speech_channel, speech_interrupted
+    
+    # Signal that speech has been interrupted
+    speech_interrupted.set()
+    
+    # Stop pygame mixer
+    pygame.mixer.stop()
+    
+    log("Speech playback interrupted", "INFO")
 
 def download_tts(sentence):
     """Download text-to-speech audio and return the path to the temp file"""
@@ -88,26 +112,30 @@ def download_tts(sentence):
 
 def play_audio(path, audio_stream):
     """Play audio file while listening for interruptions, then delete it"""
+    global current_speech_channel, speech_interrupted
+    
     try:
         sound = pygame.mixer.Sound(path)
         ch = sound.play()
+        current_speech_channel = ch
         
-        while ch.get_busy():
-            # Check for potential interruption while playing
-            pcm = audio_stream.read(1024, exception_on_overflow=False)
-            audio = np.frombuffer(pcm, dtype=np.int16)
-            rms = np.sqrt(np.mean(audio**2))
-            
-            # If loud sound detected, stop playback and start recording
-            if rms > SILENCE_THRESHOLD:
-                ch.stop()
-                pygame.mixer.stop()
-                return True  # Signal that interruption occurred
-                
+        # Reset the interrupted flag
+        speech_interrupted.clear()
+        
+        # Set the AI speaking state to true before playing
+        set_ai_speaking_state(True)
+        
+        interrupted = False
+        while ch.get_busy() and not speech_interrupted.is_set():
+            # Check for potential interruption while playing - handled by continuous recording
             pygame.time.Clock().tick(10)
         
+        # Check if we were interrupted
+        interrupted = speech_interrupted.is_set()
+        
+        # Clean up
         os.remove(path)
-        return False  # No interruption
+        return interrupted
     except Exception as e:
         log(f"Audio playback error: {e}", "ERROR")
         if os.path.exists(path):
@@ -116,6 +144,9 @@ def play_audio(path, audio_stream):
             except:
                 pass
         return False
+    finally:
+        # Make sure AI speaking state is set to false when done
+        set_ai_speaking_state(False)
 
 def split_into_sentences(text):
     """Split text into sentences for parallel TTS processing"""
@@ -137,28 +168,13 @@ def split_into_sentences(text):
 
 def speak_text(text, audio_stream):
     """Stream TTS by splitting text into sentences and processing them in parallel"""
-    global tts_start, tts_end
-    
-    # Import here to avoid circular imports
-    from chat import extract_commands, execute_command
-    
-    # Clean text and extract commands
-    clean_text, commands = extract_commands(text)
-    
-    log(f"Speaking: {Colors.BOLD}{clean_text}{Colors.ENDC}", "INFO")
-    if commands:
-        log(f"Commands detected: {len(commands)}", "COMMAND")
-    
-    # Execute commands if any
-    for cmd, param in commands:
-        result = execute_command(cmd, param)
-        log(f"Command result: {result}", "COMMAND")
+    global tts_start, tts_end, speech_interrupted
     
     tts_start = time.time()
     prompt_end_time = get_prompt_end_time()
     
     # Split into sentences
-    sentences = split_into_sentences(clean_text)
+    sentences = split_into_sentences(text)
     log(f"Split response into {len(sentences)} sentences", "INFO")
 
     # Parallel download + sequential playback with interruption checking
@@ -167,7 +183,7 @@ def speak_text(text, audio_stream):
         futures = [pool.submit(download_tts, s) for s in sentences]
 
         for i, fut in enumerate(futures):
-            if interrupted:
+            if interrupted or speech_interrupted.is_set():
                 break
                 
             path = fut.result()

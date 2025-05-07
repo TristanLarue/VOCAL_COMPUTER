@@ -47,24 +47,54 @@ def main():
     pa = pyaudio.PyAudio()
     
     # Import and initialize wake word detection
-    from triggers import initialize_wake_word
+    from triggers import initialize_wake_word, set_wake_word_active, get_wake_word_active
     porcupine, audio_stream = initialize_wake_word(pa)
+    
+    # Explicitly set wake word mode active at startup
+    set_wake_word_active(True)
+    
+    # Import the continuous recording module
+    from transcribe import start_continuous_recording
     
     try:
         log("Startup complete. Say 'Computer' to activate.", "SYSTEM")
         
-        # Pre-load sound modules to avoid import delays
-        from sounds import play_prompt_sound, play_bypass_start_sound
-        
+        # Load essential modules
         from triggers import process_wake_word
+        from transcribe import record_audio
+        from chat import process_voice_query
         
         while True:
-            # Process wake word detection
-            keyword_detected, bypass_active = process_wake_word(porcupine, audio_stream)
-            
-            # Note: Recording now starts immediately in process_wake_word when wake word is detected
-            # No need for additional code here to start recording
+            # Check if we should be in wake word mode
+            if get_wake_word_active():
+                # Process wake word detection
+                keyword_detected, _ = process_wake_word(porcupine, audio_stream)
                 
+                # If wake word detected, start recording and switch to continuous mode
+                if keyword_detected:
+                    # Update wake word state
+                    set_wake_word_active(False)
+                    
+                    # Record initial query
+                    log("Recording initial query...", "AUDIO")
+                    frames = record_audio(audio_stream)
+                    
+                    # Process the voice query
+                    process_voice_query(frames, pa, audio_stream)
+                    
+                    # Switch to continuous recording mode
+                    start_continuous_recording(audio_stream, pa)
+                    log("Switched to continuous recording mode", "SYSTEM")
+            
+            else:
+                # In continuous mode, just sleep as the continuous recording thread handles everything
+                time.sleep(0.1)
+            
+            # Add a short sleep to prevent 100% CPU usage
+            time.sleep(0.01)
+                
+    except KeyboardInterrupt:
+        log("Shutting down on keyboard interrupt", "SYSTEM")
     except Exception as e:
         log(f"Error: {e}", "ERROR")
     finally:
@@ -76,6 +106,7 @@ def main():
             audio_stream.close()
         
         pa.terminate()
+        log("System shutdown complete", "SYSTEM")
 
 if __name__ == "__main__":
     main()

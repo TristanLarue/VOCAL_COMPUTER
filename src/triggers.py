@@ -7,22 +7,29 @@ import threading
 from dotenv import load_dotenv
 
 from utils import log, Colors
-from transcribe import record_audio
 
 # Load environment variables
 load_dotenv()
 
-# Global state for bypass mode
-bypass_active = False
-bypass_end_time = 0
-BYPASS_DELAY = 5  # seconds before bypass mode ends
+# Global state for wake word detection
+wake_word_active = False
 
 # Pre-load sounds module
 try:
-    from sounds import play_bypass_start_sound, play_bypass_cancel_sound
-    log("Sound module pre-loaded in triggers", "INFO")
+    from sounds import play_prompt_sound
 except ImportError:
     log("Failed to pre-load sound module", "ERROR")
+
+def set_wake_word_active(state):
+    """Set the wake word active state"""
+    global wake_word_active
+    wake_word_active = state
+    log(f"Wake word active state set to: {state}", "SYSTEM")
+
+def get_wake_word_active():
+    """Get the current wake word active state"""
+    global wake_word_active
+    return wake_word_active
 
 def initialize_wake_word(pa):
     """Initialize the wake word detection system"""
@@ -43,8 +50,7 @@ def initialize_wake_word(pa):
     return porcupine, audio_stream
 
 def process_wake_word(porcupine, audio_stream):
-    """Process audio for wake word detection, returns (keyword_detected, bypass_active)"""
-    global bypass_active, bypass_end_time
+    """Process audio for wake word detection, returns (keyword_detected, unused_flag)"""
     
     # Read audio frame for wake word detection
     pcm = audio_stream.read(porcupine.frame_length, exception_on_overflow=False)
@@ -53,49 +59,28 @@ def process_wake_word(porcupine, audio_stream):
     # Check if wake word detected
     keyword_index = porcupine.process(pcm_data)
     
-    # Check if bypass mode expired
-    if bypass_active and time.time() > bypass_end_time:
-        bypass_active = False
-        #from sounds import play_bypass_cancel_sound
-        #play_bypass_cancel_sound()
-    
     # If wake word detected
     if keyword_index >= 0:
         log("Wake word 'Computer' detected!", "SUCCESS")
         
-        # Start recording immediately
-        threading.Thread(target=start_recording_flow, args=(audio_stream,), daemon=True).start()
-        
-        return True, bypass_active
-    
-    return False, bypass_active
-
-def start_recording_flow(audio_stream):
-    """Handle wake word detection and start recording immediately"""
-    try:
-        # Play the notification sound in a separate thread
+        # Play a notification sound to indicate wake word detection
         threading.Thread(target=play_notification_sound, daemon=True).start()
         
-        # Start recording immediately
-        from transcribe import record_audio
-        frames = record_audio(audio_stream)
-        
-        # Process the voice query
-        from chat import process_voice_query
-        import pyaudio
-        pa = pyaudio.PyAudio()  # Get a fresh PyAudio instance
-        process_voice_query(frames, pa, audio_stream)
-    except Exception as e:
-        log(f"Error in recording flow: {e}", "ERROR")
+        return True, False
+    
+    return False, False
 
 def play_notification_sound():
     """Play the notification sound without blocking the recording flow"""
-    from sounds import play_bypass_start_sound
-    play_bypass_start_sound()
-
-def set_bypass_mode(active=True, duration=BYPASS_DELAY):
-    """Set the bypass mode state"""
-    global bypass_active, bypass_end_time
-    bypass_active = active
-    if active:
-        bypass_end_time = time.time() + duration
+    from sounds import play_prompt_sound
+    play_prompt_sound()
+    
+def initialize_wake_word_mode():
+    """Switch back to wake word detection mode"""
+    log("Switching back to wake word detection mode", "SYSTEM")
+    
+    # Set the global state to enable wake word detection
+    set_wake_word_active(True)
+    
+    # This will be imported and used by main.py
+    log("Now listening for wake word 'Computer'", "SYSTEM")

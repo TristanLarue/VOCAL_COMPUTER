@@ -23,6 +23,7 @@ Read the previous memory, the most recent user question, and Nova's response. Th
 3. Removes redundant or low-value information
 4. Maintains temporal order of key events
 5. Formats in simple paragraph form
+6. Always includes the exact last query and response at the end for perfect context
 
 Previous memory: {previous_memory}
 
@@ -30,7 +31,7 @@ Recent interaction:
 User: {user_question}
 Nova: {assistant_response}
 
-Provide ONLY the new compressed memory paragraph with no additional text or explanation:
+Provide ONLY the new compressed memory paragraph with no additional text or explanation. Always end the memory with the exact last exchange:
 '''
 
 def update_memory(user_question, assistant_response):
