@@ -60,9 +60,17 @@ def play_sound(filename, blocking=False):
     except Exception as e:
         log(f"Error playing sound {filename}: {e}", "ERROR")
 
-def play_prompt_sound():
+def play_pop_sound():
     """Play sound to indicate the system is processing - non-blocking"""
-    play_sound("prompting.wav", blocking=False)
+    play_sound("pop.wav", blocking=False)
+
+def play_open_sound():
+    """Play sound to indicate the system is processing - non-blocking"""
+    play_sound("open.wav", blocking=False)
+
+def play_close_sound():
+    """Play sound to indicate the system is processing - non-blocking"""
+    play_sound("close.wav", blocking=False)
 
 def stop_current_speech():
     """Immediately stop any currently playing speech"""
@@ -79,6 +87,11 @@ def stop_current_speech():
 def download_tts(sentence):
     """Download text-to-speech audio and return the path to the temp file"""
     try:
+        # Make sure the sentence isn't empty
+        if not sentence.strip():
+            log("Empty sentence provided to TTS, skipping", "WARNING")
+            return None
+            
         payload = {
             "model": TTS_MODEL,
             "voice": TTS_VOICE,
@@ -150,6 +163,10 @@ def play_audio(path, audio_stream):
 
 def split_into_sentences(text):
     """Split text into sentences for parallel TTS processing"""
+    # Skip if text is empty
+    if not text or not text.strip():
+        return []
+        
     # Handle common sentence-ending punctuation and keep the punctuation
     pattern = r'(?<=[.!?])\s+'
     sentences = re.split(pattern, text)
@@ -170,12 +187,20 @@ def speak_text(text, audio_stream):
     """Stream TTS by splitting text into sentences and processing them in parallel"""
     global tts_start, tts_end, speech_interrupted
     
+    # Don't attempt to speak empty text
+    if not text or not text.strip():
+        log("Skipping TTS for empty text", "INFO")
+        return False
+    
     tts_start = time.time()
-    prompt_end_time = get_prompt_end_time()
     
     # Split into sentences
     sentences = split_into_sentences(text)
     log(f"Split response into {len(sentences)} sentences", "INFO")
+    
+    # If no valid sentences, skip
+    if not sentences:
+        return False
 
     # Parallel download + sequential playback with interruption checking
     interrupted = False
@@ -191,7 +216,7 @@ def speak_text(text, audio_stream):
                 continue
                 
             if i == 0:
-                log(f"Total latency from speech end to TTS start {(tts_start - prompt_end_time):.3f}s", "TIMING")
+                log(f"Total latency from speech end to TTS start {(tts_start - get_prompt_end_time()):.3f}s", "TIMING")
                 
             # Play audio and check for interruption
             interrupted = play_audio(path, audio_stream)
@@ -209,5 +234,4 @@ def speak_text(text, audio_stream):
                 return True  # Signal that interruption occurred
     
     tts_end = time.time()
-    log(f"All audio ready and spoken in {(tts_end - tts_start):.3f}s", "TIMING")
     return False  # No interruption occurred

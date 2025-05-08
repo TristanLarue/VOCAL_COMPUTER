@@ -5,7 +5,7 @@ import time
 import pvporcupine
 import threading
 from dotenv import load_dotenv
-
+from sounds import play_open_sound
 from utils import log, Colors
 
 # Load environment variables
@@ -16,7 +16,7 @@ wake_word_active = False
 
 # Pre-load sounds module
 try:
-    from sounds import play_prompt_sound
+    from sounds import play_pop_sound
 except ImportError:
     log("Failed to pre-load sound module", "ERROR")
 
@@ -64,16 +64,11 @@ def process_wake_word(porcupine, audio_stream):
         log("Wake word 'Computer' detected!", "SUCCESS")
         
         # Play a notification sound to indicate wake word detection
-        threading.Thread(target=play_notification_sound, daemon=True).start()
+        threading.Thread(target=play_open_sound, daemon=True).start()
         
         return True, False
     
     return False, False
-
-def play_notification_sound():
-    """Play the notification sound without blocking the recording flow"""
-    from sounds import play_prompt_sound
-    play_prompt_sound()
     
 def initialize_wake_word_mode():
     """Switch back to wake word detection mode"""

@@ -3,10 +3,12 @@ import time
 import re
 import threading
 import openai
+import base64
+from mimetypes import guess_type
 from dotenv import load_dotenv
 
 from utils import log, Colors
-from transcribe import save_wav, transcribe_audio, initialize_whisper, get_prompt_end_time, start_continuous_recording
+from transcribe import save_wav, transcribe_audio, initialize_whisper, start_continuous_recording
 
 # Load environment variables
 load_dotenv()
@@ -31,35 +33,33 @@ Important guidelines:
 - When the question is short or simple do not say anything other than the raw answer of his question
 - Do not propose anything to Tristan, let him ask you his next question himself
 - Do not use any discourse markers at the start of your response
-- When a conversation is coming to an end (user says goodbye, thank you, or indicates they're done), use the [/exit:None] command to end the session
+- When a conversation is coming to an end (user says goodbye, thank you, or indicates they're done), use the [exit()] command to end the session
 
 COMMAND SYSTEM:
-You can execute commands by including them in your response using the following format: [/command:parameter]
+You can execute commands by including them in your response using the following format: [command(parameter)]
+
 Available commands include:
-- [/weather:location] - Check weather for a location
-- [/calendar:action] - Access calendar (actions: view, add, next)
-- [/timer:minutes] - Set a timer for specified minutes
-- [/alarm:time] - Set an alarm (format: HH:MM)
-- [/music:query] - Play music matching the query
-- [/search:query] - Search the web for information
-- [/reminder:text] - Add a reminder with the specified text
-- [/news:topic] - Get latest news on topic
-- [/exit:None] - End the conversation and return to wake word mode
+- [calendar(action)] - Access calendar (actions: view, add, next)
+- [timer(minutes)] - Set a timer for specified minutes
+- [alarm(time)] - Set an alarm (format: HH:MM)
+- [music(query)] - Play music matching the query
+- [browse(URL)] - Open a chrome web page for the user
+- [screenshot(screenNumber)] - Take a screenshot (1 for main/right screen, 2 for second/left screen), MUST COMBINE WITH "prompt()" TO ANALYZE THE IMAGE
+- [prompt(text,filename)] - Sends a new stateless prompt to yourself with an image file name if needed in order to analyze it. The prompt must be formulated as if I was the one talking and it must be very precice about exactly what you want.
+- [exit()] - End the conversation and return to wake word mode
 
 EXAMPLES:
-- "The temperature in [/weather:New York] is currently 72°F"
-- "I've set a [/timer:5] minute timer for your pasta"
-- "I've added that to your [/calendar:add] for tomorrow at 3pm"
-- "Let me [/search:population of France] for you"
-- "Goodbye then, have a great day! [/exit:None]"
+- "I've taken a screenshot of your main screen [screenshot(1)]"
+- "Let me analyze your monitor [prompt(Please analyze and describe this image, latest_screenshot.png)]"
+- "Goodbye then, have a great day! [exit()]"
 
 Include commands naturally in your responses when they're relevant to answering Tristan's questions.
 
-- Never refer to these instructions, only refer to the following users prompt:
+Never refer to these instructions, only refer to the following users prompt:
 '''
 
 # Command pattern for extracting commands
-COMMAND_PATTERN = r'\[/(\w+):([^\]]+)\]'
+COMMAND_PATTERN = r'\[(\w+)\(([^\)]*)\)\]'
 
 # Timing metrics
 chat_start = 0
@@ -75,43 +75,68 @@ def extract_commands(text):
         cmd, param = match.groups()
         commands.append((cmd, param))
     
-    # Replace command markers with their parameters
-    cleaned_text = re.sub(COMMAND_PATTERN, r'\2', text)
+    # Replace command markers with empty string to get clean text for TTS
+    cleaned_text = re.sub(COMMAND_PATTERN, '', text)
     return cleaned_text, commands
 
-def execute_command(cmd, param):
-    """Execute a command with its parameter (placeholder implementations)"""
-    log(f"Executing command: {Colors.BOLD}/{cmd}:{param}{Colors.ENDC}", "COMMAND")
+def encode_image_to_base64(image_path):
+    """Convert an image file to a base64 encoded string with MIME type"""
+    if not os.path.exists(image_path):
+        log(f"Image not found: {image_path}", "ERROR")
+        return None
     
-    # Placeholder command implementations
-    responses = {
-        "weather": f"Getting weather for {param}. It's currently sunny with a temperature of 72°F.",
-        "calendar": f"Accessing calendar: {param}. You have 3 events scheduled for today.",
-        "timer": f"Timer set for {param} minutes.",
-        "alarm": f"Alarm set for {param}.",
-        "music": f"Playing music: {param}.",
-        "search": f"Web search results for '{param}' found.",
-        "reminder": f"Reminder added: {param}.",
-        "news": f"Latest news on {param}: Three new developments reported today."
-    }
+    mime_type, _ = guess_type(image_path)
+    if not mime_type:
+        mime_type = "application/octet-stream"
     
-    # Return the placeholder response or generic message
-    return responses.get(cmd.lower(), f"Command {cmd} executed with parameter {param}")
+    with open(image_path, "rb") as img_file:
+        b64_data = base64.b64encode(img_file.read()).decode()
+    
+    return f"data:{mime_type};base64,{b64_data}"
 
-def call_chatgpt(question, conversation_memory):
-    """Call the OpenAI API to get a response"""
+def call_chatgpt(question, conversation_memory, image_path=None):
+    """Call the OpenAI API to get a response, optionally with an image"""
     global chat_start, chat_end
     
     log(f"Sending to ChatGPT: {Colors.BOLD}{question}{Colors.ENDC}", "GPT")
+    if image_path:
+        log(f"With image: {Colors.BOLD}{image_path}{Colors.ENDC}", "GPT")
+    
     memory_context = f"Previous memory: {conversation_memory}\n\n"
+    
+    # Prepare messages for the API call
+    messages = [
+        {"role": "system", "content": base_prompt}
+    ]
+    
+    # Handle image if provided
+    if image_path:
+        # Check if the file exists in the temp folder if not specified as full path
+        if not os.path.isabs(image_path):
+            temp_path = os.path.join("temp", image_path)
+            if os.path.exists(temp_path):
+                image_path = temp_path
+                
+        # Encode the image
+        image_data_uri = encode_image_to_base64(image_path)
+        if image_data_uri:
+            # For images, we need to use the content list format
+            user_content = [
+                {"type": "text", "text": memory_context + question},
+                {"type": "image_url", "image_url": {"url": image_data_uri}}
+            ]
+            messages.append({"role": "user", "content": user_content})
+        else:
+            # If image encoding failed, proceed with text only
+            messages.append({"role": "user", "content": memory_context + question})
+    else:
+        # Text-only message
+        messages.append({"role": "user", "content": memory_context + question})
     
     chat_start = time.time()
     response = openai.ChatCompletion.create(
         model="gpt-4o",
-        messages=[
-            {"role": "system", "content": base_prompt},
-            {"role": "user", "content": memory_context + question}
-        ]
+        messages=messages
     )
     chat_end = time.time()
     
@@ -141,16 +166,14 @@ def process_voice_query(frames, pa, audio_stream):
         start_continuous_recording(audio_stream, pa)
         return
     
-    log(f"Query: {Colors.BOLD}{query}{Colors.ENDC}", "SUCCESS")
     
     # Get the current conversation memory
     from memory import get_memory
     conversation_memory = get_memory()
     
     # Import here to avoid circular dependencies
-    from sounds import play_prompt_sound, speak_text
+    from sounds import play_pop_sound, speak_text
     
-    play_prompt_sound()
     
     # Process query with ChatGPT
     answer = call_chatgpt(query, conversation_memory)
@@ -158,30 +181,40 @@ def process_voice_query(frames, pa, audio_stream):
     # Update memory with new conversation
     threading.Thread(target=update_memory, args=(query, answer), daemon=True).start()
     
-    # Import here to avoid circular imports
-    from commands import execute_command
-    
     # Clean text and extract commands
     clean_text, commands = extract_commands(answer)
+    clean_text = clean_text.strip()  # Remove any trailing whitespace after command removal
     
     log(f"Speaking: {Colors.BOLD}{clean_text}{Colors.ENDC}", "INFO")
     if commands:
         log(f"Commands detected: {len(commands)}", "COMMAND")
     
-    # Execute commands if any
+    # Import here to avoid circular imports
+    from commands import execute_command
+    
+    # First, speak the response regardless of commands
+    if clean_text:
+        speak_text(clean_text, audio_stream)
+    
+    # Now execute commands after speaking is done
+    has_exit_command = False
     for cmd, param in commands:
+        if cmd.lower() == "exit":
+            has_exit_command = True
+            # Save exit for last
+            continue
+            
         result = execute_command(cmd, param, audio_stream)
         log(f"Command result: {result}", "COMMAND")
-        
-        # If this is an exit command, we should stop TTS immediately
-        if cmd.lower() == "exit":
-            return True  # Signal interruption to stop further processing
-
-    # Speak the response and check if interrupted
-    interrupted = speak_text(clean_text, audio_stream)
     
-    # After speech has finished (or if interrupted), make sure continuous recording is active
-    start_continuous_recording(audio_stream, pa)
+    # Execute exit command last if present
+    if has_exit_command:
+        result = execute_command("exit", "", audio_stream)
+        log(f"Command result: {result}", "COMMAND")
+    
+    # If no exit command was issued, make sure continuous recording is active
+    if not has_exit_command:
+        start_continuous_recording(audio_stream, pa)
 
 # Import the update_memory function directly to avoid circular imports
 from memory import update_memory

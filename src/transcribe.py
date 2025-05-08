@@ -68,7 +68,6 @@ def save_wav(filename, frames, pa):
     wf.setframerate(RATE)
     wf.writeframes(b''.join(frames))
     wf.close()
-    log(f"Saved audio to {filename}", "AUDIO")
 
 def transcribe_audio(filename, model=None):
     """Transcribe audio using Whisper"""
@@ -96,7 +95,7 @@ def set_ai_speaking_state(is_speaking):
     """Set the global state tracking if AI is currently speaking"""
     global is_ai_speaking
     is_ai_speaking = is_speaking
-    log(f"AI speaking state: {is_speaking}", "INFO")
+    #log(f"AI speaking state: {is_speaking}", "INFO")
 
 def start_continuous_recording(audio_stream, pa):
     """Start continuous recording in a separate thread"""
