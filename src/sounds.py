@@ -22,6 +22,9 @@ TTS_VOICE = "nova"
 TTS_MODEL = "tts-1"
 TTS_SPEED = 1.0  # 1.0 is normal speed
 
+# Fade out duration in milliseconds
+FADE_OUT_DURATION = 800  # 0.8 seconds
+
 # Timing metrics
 tts_start = 0
 tts_end = 0
@@ -36,7 +39,9 @@ def reset_speech_state():
     speech_interrupted.set()  # Ensure any pending speech is stopped
     
     if current_speech_channel and current_speech_channel.get_busy():
-        current_speech_channel.stop()
+        current_speech_channel.fadeout(FADE_OUT_DURATION)  # Fade out instead of stopping
+        # Wait a moment for fade to begin but don't block completely
+        time.sleep(0.1) 
     
     current_speech_channel = None
     speech_interrupted.clear()  # Reset for future use
@@ -73,18 +78,21 @@ def play_close_sound():
     play_sound("close.wav", blocking=False)
 
 def stop_current_speech():
-    """Immediately stop any currently playing speech"""
+    """Fade out the currently playing speech instead of stopping abruptly"""
     global current_speech_channel, speech_interrupted
     
     # Signal that speech has been interrupted
     speech_interrupted.set()
     
-    # Stop only the current speech channel, not all sound channels
+    # Fade out the current speech channel, if it exists
     if current_speech_channel and current_speech_channel.get_busy():
-        current_speech_channel.stop()
-        log("Current speech playback interrupted", "INFO")
+        log(f"Fading out speech over {FADE_OUT_DURATION}ms", "INFO")
+        current_speech_channel.fadeout(FADE_OUT_DURATION)  # Fade out over specified duration
+        
+        # Short wait to let fade begin but don't block completely
+        time.sleep(0.1)
     else:
-        log("No active speech to interrupt", "INFO")
+        log("No active speech to fade out", "INFO")
     
     # Set AI speaking state to false when speech is stopped
     set_ai_speaking_state(False)
@@ -151,6 +159,11 @@ def play_audio(path, audio_stream):
         # Check if we were interrupted
         interrupted = speech_interrupted.is_set()
         
+        # If interrupted, make sure we wait for fadeout to complete
+        if interrupted:
+            # Give a small delay to let any fade-out complete naturally
+            time.sleep(FADE_OUT_DURATION / 1000 * 0.8)  # 80% of fade duration
+        
         # Clean up
         os.remove(path)
         return interrupted
@@ -191,7 +204,9 @@ def split_into_sentences(text):
 def speak_text(text, audio_stream):
     """Stream TTS by splitting text into sentences and processing them in parallel"""
     global tts_start, tts_end, speech_interrupted
-    
+    from transcribe import is_ai_speaking
+    if is_ai_speaking:
+        stop_current_speech()
     # Don't attempt to speak empty text
     if not text or not text.strip():
         log("Skipping TTS for empty text", "INFO")

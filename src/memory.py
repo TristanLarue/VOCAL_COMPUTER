@@ -15,9 +15,9 @@ conversation_memory = "No prior conversation context."
 
 # Memory system prompt
 memory_prompt = '''
-You are a memory assistant for an AI voice assistant named Nova. Your job is to maintain a short, compressed memory of conversations between Nova and Tristan.
+You are a memory assistant for an AI voice assistant named "Computer". Your job is to maintain a short, compressed memory of conversations between Computer and Tristan.
 
-Read the previous memory, the most recent user question, and Nova's response. Then create a new, updated memory that:
+Read the previous memory, the most recent user question, and Computer's response. Then create a new, updated memory that:
 1. Is extremely concise (maximum 300 words)
 2. Prioritizes important facts, preferences, and context
 3. Removes redundant or low-value information
@@ -29,7 +29,7 @@ Previous memory: {previous_memory}
 
 Recent interaction:
 User: {user_question}
-Nova: {assistant_response}
+Computer: {assistant_response}
 
 Provide ONLY the new compressed memory paragraph with no additional text or explanation. Always end the memory with the exact last exchange:
 '''

@@ -17,6 +17,7 @@ SILENCE_THRESHOLD = 500
 SILENCE_CHUNKS = int(RATE / CHUNK * 2)  # ~2 seconds of silence
 MAX_LISTEN_TIME = int(RATE / CHUNK * 5)  # ~5 seconds max listening time after AI speech
 BUFFER_KEEP_CHUNKS = 5  # Number of silence chunks to keep before speech (for context)
+RMS_HISTORY_DURATION = int(RATE / CHUNK * 1)  # ~1 seconds of RMS history for interruption detection
 
 # Timing metrics
 transcription_start = 0
@@ -180,6 +181,9 @@ def continuous_recording_loop(audio_stream, pa):
     speech_detected = False
     buffer_frames = collections.deque(maxlen=BUFFER_KEEP_CHUNKS)  # Buffer to keep recent audio for context
     
+    # Variables for RMS average calculation
+    rms_history = collections.deque(maxlen=int(RATE / CHUNK * 2))  # Store ~2 seconds of RMS values
+    
     log("Continuous recording loop started", "AUDIO")
     
     while continuous_recording_active:
@@ -198,39 +202,37 @@ def continuous_recording_loop(audio_stream, pa):
             rms = np.sqrt(np.mean(audio**2))
             current_rms = round(rms)
             
+            # Store RMS value in history
+            rms_history.append(rms)
+            
             # If AI is speaking, check for interruption
             if is_ai_speaking:
-                if rms > SILENCE_THRESHOLD * 1.4:  # Higher threshold for interruption
-                    # User is speaking while AI is speaking - this is an interruption
-                    log(f"User interruption detected while AI speaking (RMS: {rms})", "INFO")
+                # Only check for interruption if we have enough RMS history
+                if len(rms_history) >= int(RATE / CHUNK * 0.5):  # At least 0.5 seconds of history
+                    # Calculate average RMS over the last 2 seconds (or whatever we have)
+                    avg_rms = sum(rms_history) / len(rms_history)
                     
-                    # Launch stop_current_speech asynchronously
-                    from sounds import stop_current_speech
-                    threading.Thread(target=stop_current_speech, daemon=True).start()
-                    
-                    # Calculate how many frames to include
-                    # Include buffer_frames + current detected speech + a bit more
-                    context_frames = list(buffer_frames)
-                    start_idx = max(0, len(all_frames) - BUFFER_KEEP_CHUNKS - 15)  # 15 frames ~1 sec of context
-                    frames_to_process = context_frames + all_frames[start_idx:]
-                    
-                    # Process the interruption asynchronously
-                    log("Processing interruption", "AUDIO")
-                    threading.Thread(
-                        target=process_voice_query, 
-                        args=(frames_to_process, pa, audio_stream),
-                        daemon=True
-                    ).start()
-                    
-                    # Reset state
-                    speech_detected = False
-                    silence_count = 0
+                    # If average RMS exceeds threshold, consider it an interruption
+                    if avg_rms > SILENCE_THRESHOLD * 1.2:  # Slightly lower threshold for average
+                        log(f"Interruption detected - average RMS over last 2s: {avg_rms:.2f}", "INFO")
+                        
+                        # Launch stop_current_speech asynchronously to fade out
+                        from sounds import stop_current_speech
+                        threading.Thread(target=stop_current_speech, daemon=True).start()
+                        
+                        # Reset state
+                        speech_detected = False
+                        silence_count = 0
+                        rms_history.clear()  # Clear RMS history after interruption
                 
                 # Update buffer frames even during AI speech
                 buffer_frames.append(data)
                     
             # If AI is not speaking, look for new user speech
             else:
+                # Reset interruption variables when AI is not speaking
+                rms_history.clear()  # Clear RMS history when AI is not speaking
+                
                 if rms > SILENCE_THRESHOLD:
                     # Reset silence counter since we heard something
                     silence_count = 0
