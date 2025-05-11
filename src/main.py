@@ -61,8 +61,7 @@ def main():
         
         # Load essential modules
         from triggers import process_wake_word
-        from transcribe import record_audio
-        from chat import process_voice_query
+        from sounds import play_open_sound
         
         while True:
             # Check if we should be in wake word mode
@@ -70,21 +69,17 @@ def main():
                 # Process wake word detection
                 keyword_detected, _ = process_wake_word(porcupine, audio_stream)
                 
-                # If wake word detected, start recording and switch to continuous mode
+                # If wake word detected, immediately start continuous recording mode
                 if keyword_detected:
                     # Update wake word state
                     set_wake_word_active(False)
                     
-                    # Record initial query
-                    log("Recording initial query...", "AUDIO")
-                    frames = record_audio(audio_stream)
+                    # Play the wake sound
+                    play_open_sound()
                     
-                    # Process the voice query
-                    process_voice_query(frames, pa, audio_stream)
-                    
-                    # Switch to continuous recording mode
+                    # Go directly to continuous recording mode
                     start_continuous_recording(audio_stream, pa)
-                    log("Switched to continuous recording mode", "SYSTEM")
+                    log("Started continuous recording mode", "SYSTEM")
             
             else:
                 # In continuous mode, just sleep as the continuous recording thread handles everything
@@ -99,6 +94,9 @@ def main():
         log(f"Error: {e}", "ERROR")
     finally:
         # Clean up resources
+        from transcribe import stop_continuous_recording,continuous_recording_active
+        if continuous_recording_active:
+            stop_continuous_recording()
         if porcupine is not None:
             porcupine.delete()
         

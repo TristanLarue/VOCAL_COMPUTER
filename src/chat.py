@@ -8,7 +8,6 @@ from mimetypes import guess_type
 from dotenv import load_dotenv
 
 from utils import log, Colors
-from transcribe import save_wav, transcribe_audio, initialize_whisper, start_continuous_recording
 
 # Load environment variables
 load_dotenv()
@@ -64,9 +63,6 @@ COMMAND_PATTERN = r'\[(\w+)\(([^\)]*)\)\]'
 # Timing metrics
 chat_start = 0
 chat_end = 0
-
-# Global whisper model - pre-load during import
-whisper_model = initialize_whisper()
 
 def extract_commands(text):
     """Extract commands from text and return both cleaned text and command list"""
@@ -144,77 +140,3 @@ def call_chatgpt(question, conversation_memory, image_path=None):
     log(f"Response generation duration: {Colors.BOLD}{(chat_end-chat_start):.3f}s{Colors.ENDC}", "TIMING")
     
     return answer
-
-def process_voice_query(frames, pa, audio_stream):
-    """Process a voice query from recorded audio frames"""
-    global whisper_model
-    
-    # Save recorded audio to a temporary file
-    save_wav("temp.wav", frames, pa)
-    
-    # Transcribe the recorded audio
-    query = transcribe_audio("temp.wav", whisper_model)
-    
-    # Clean up temp file
-    try:
-        os.remove("temp.wav")
-    except:
-        pass
-    
-    if not query:
-        # If no query was detected, restart continuous recording
-        start_continuous_recording(audio_stream, pa)
-        return
-    
-    
-    # Get the current conversation memory
-    from memory import get_memory
-    conversation_memory = get_memory()
-    
-    # Import here to avoid circular dependencies
-    from sounds import play_pop_sound, speak_text
-    
-    
-    # Process query with ChatGPT
-    answer = call_chatgpt(query, conversation_memory)
-    
-    # Update memory with new conversation
-    threading.Thread(target=update_memory, args=(query, answer), daemon=True).start()
-    
-    # Clean text and extract commands
-    clean_text, commands = extract_commands(answer)
-    clean_text = clean_text.strip()  # Remove any trailing whitespace after command removal
-    
-    log(f"Speaking: {Colors.BOLD}{clean_text}{Colors.ENDC}", "INFO")
-    if commands:
-        log(f"Commands detected: {len(commands)}", "COMMAND")
-    
-    # Import here to avoid circular imports
-    from commands import execute_command
-    
-    # First, speak the response regardless of commands
-    if clean_text:
-        speak_text(clean_text, audio_stream)
-    
-    # Now execute commands after speaking is done
-    has_exit_command = False
-    for cmd, param in commands:
-        if cmd.lower() == "exit":
-            has_exit_command = True
-            # Save exit for last
-            continue
-            
-        result = execute_command(cmd, param, audio_stream)
-        log(f"Command result: {result}", "COMMAND")
-    
-    # Execute exit command last if present
-    if has_exit_command:
-        result = execute_command("exit", "", audio_stream)
-        log(f"Command result: {result}", "COMMAND")
-    
-    # If no exit command was issued, make sure continuous recording is active
-    if not has_exit_command:
-        start_continuous_recording(audio_stream, pa)
-
-# Import the update_memory function directly to avoid circular imports
-from memory import update_memory

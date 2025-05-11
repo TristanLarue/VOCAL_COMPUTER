@@ -79,10 +79,15 @@ def stop_current_speech():
     # Signal that speech has been interrupted
     speech_interrupted.set()
     
-    # Stop pygame mixer
-    pygame.mixer.stop()
+    # Stop only the current speech channel, not all sound channels
+    if current_speech_channel and current_speech_channel.get_busy():
+        current_speech_channel.stop()
+        log("Current speech playback interrupted", "INFO")
+    else:
+        log("No active speech to interrupt", "INFO")
     
-    log("Speech playback interrupted", "INFO")
+    # Set AI speaking state to false when speech is stopped
+    set_ai_speaking_state(False)
 
 def download_tts(sentence):
     """Download text-to-speech audio and return the path to the temp file"""
@@ -201,6 +206,9 @@ def speak_text(text, audio_stream):
     # If no valid sentences, skip
     if not sentences:
         return False
+
+    # Reset interrupted flag before starting new speech
+    speech_interrupted.clear()
 
     # Parallel download + sequential playback with interruption checking
     interrupted = False
