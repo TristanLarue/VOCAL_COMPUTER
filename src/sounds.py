@@ -23,7 +23,7 @@ TTS_MODEL = "tts-1"
 TTS_SPEED = 1.0  # 1.0 is normal speed
 
 # Fade out duration in milliseconds
-FADE_OUT_DURATION = 800  # 0.8 seconds
+FADE_OUT_DURATION = 500  # 0.5 seconds
 
 # Timing metrics
 tts_start = 0

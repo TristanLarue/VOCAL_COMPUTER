@@ -170,6 +170,21 @@ def stop_continuous_recording():
     """Stop the continuous recording thread"""
     global continuous_recording_active
     continuous_recording_active = False
+    # Import here to avoid circular imports
+    from triggers import initialize_wake_word_mode, set_wake_word_active
+    # Switch back to wake word detection mode
+    initialize_wake_word_mode()
+    # Explicitly set wake word active state
+    set_wake_word_active(True)
+    
+    # Reset any state that might prevent wake word detection
+    from sounds import play_close_sound,reset_speech_state
+    play_close_sound()
+    reset_speech_state()
+    
+    # Reset conversation memory
+    from memory import reset_memory
+    #reset_memory()
     log("Continuous recording stopped", "INFO")
 
 def continuous_recording_loop(audio_stream, pa):
@@ -179,10 +194,21 @@ def continuous_recording_loop(audio_stream, pa):
     # Initialize variables for recording management
     silence_count = 0
     speech_detected = False
-    buffer_frames = collections.deque(maxlen=BUFFER_KEEP_CHUNKS)  # Buffer to keep recent audio for context
+    
+    # Buffer to keep recent audio for context (2 seconds of audio before speech)
+    buffer_size = int(RATE / CHUNK * 2)  # ~2 seconds of audio chunks
+    buffer_frames = collections.deque(maxlen=buffer_size)
     
     # Variables for RMS average calculation
-    rms_history = collections.deque(maxlen=int(RATE / CHUNK * 2))  # Store ~2 seconds of RMS values
+    rms_history = collections.deque(maxlen=RMS_HISTORY_DURATION)
+    
+    # Variables for auto-closing conversation
+    inactivity_counter = 0
+    ai_finished_speaking_time = 0
+    waiting_for_ai_response = False
+    
+    # Define the inactivity timeout (15 seconds)
+    INACTIVITY_TIMEOUT = int(RATE / CHUNK * 15)  # ~15 seconds of inactivity
     
     log("Continuous recording loop started", "AUDIO")
     
@@ -190,13 +216,7 @@ def continuous_recording_loop(audio_stream, pa):
         # Always get audio chunk - continuous recording never stops
         try:
             data = audio_stream.read(CHUNK, exception_on_overflow=False)
-            # ALWAYS store every frame regardless of state
-            all_frames.append(data)
             
-            # Limit the size of all_frames to prevent memory issues
-            if len(all_frames) > max_frames_stored:
-                all_frames.pop(0)  # Remove oldest frame
-                
             # Process audio for activity detection
             audio = np.frombuffer(data, dtype=np.int16).astype(np.float32)
             rms = np.sqrt(np.mean(audio**2))
@@ -205,8 +225,12 @@ def continuous_recording_loop(audio_stream, pa):
             # Store RMS value in history
             rms_history.append(rms)
             
-            # If AI is speaking, check for interruption
+            # Track when AI stops speaking to start inactivity timer
             if is_ai_speaking:
+                # Reset inactivity counters while AI is speaking
+                inactivity_counter = 0
+                ai_finished_speaking_time = 0
+                waiting_for_ai_response = False
                 # Only check for interruption if we have enough RMS history
                 if len(rms_history) >= int(RATE / CHUNK * 0.5):  # At least 0.5 seconds of history
                     # Calculate average RMS over the last 2 seconds (or whatever we have)
@@ -216,61 +240,103 @@ def continuous_recording_loop(audio_stream, pa):
                     if avg_rms > SILENCE_THRESHOLD * 1.2:  # Slightly lower threshold for average
                         log(f"Interruption detected - average RMS over last 2s: {avg_rms:.2f}", "INFO")
                         
+                        # Start keeping frames for the interruption
+                        speech_detected = True
+                        silence_count = 0
+                        waiting_for_ai_response = False  # No longer waiting for AI response
+                        
+                        # Add current frame and buffer frames to all_frames
+                        all_frames = list(buffer_frames)
+                        all_frames.append(data)
+                        
                         # Launch stop_current_speech asynchronously to fade out
                         from sounds import stop_current_speech
                         threading.Thread(target=stop_current_speech, daemon=True).start()
                         
-                        # Reset state
-                        speech_detected = False
-                        silence_count = 0
-                        rms_history.clear()  # Clear RMS history after interruption
-                
-                # Update buffer frames even during AI speech
-                buffer_frames.append(data)
+                        # Clear RMS history after interruption
+                        rms_history.clear()
+                    else:
+                        # Still update buffer frames during AI speech when no interruption
+                        buffer_frames.append(data)
+                else:
+                    # Update buffer frames when not enough RMS history
+                    buffer_frames.append(data)
                     
             # If AI is not speaking, look for new user speech
             else:
-                # Reset interruption variables when AI is not speaking
-                rms_history.clear()  # Clear RMS history when AI is not speaking
-                
-                if rms > SILENCE_THRESHOLD:
-                    # Reset silence counter since we heard something
-                    silence_count = 0
+                if not speech_detected:
+                    # If speech hasn't been detected yet, only keep the last 2 seconds
+                    buffer_frames.append(data)
                     
-                    # If this is new speech, mark it
-                    if not speech_detected:
+                    if rms > SILENCE_THRESHOLD:
+                        # New speech detected! Start keeping all frames
                         speech_detected = True
-                        log("New speech detected in continuous recording", "AUDIO")
-                
-                elif speech_detected:
-                    # Count silence after speech
-                    silence_count += 1
-                    
-                    # If we've had enough silence after speech, process it
-                    if silence_count > SILENCE_CHUNKS:
-                        log("Speech followed by silence - processing query", "AUDIO")
-                        prompt_end_time = time.time()
-                        
-                        # Process with appropriate frame selection
-                        # Include buffer for context + speech frames
-                        # Calculate the range of frames to process
-                        speech_duration = silence_count + SILENCE_CHUNKS * 2  # Estimate of speech length
-                        context_frames = list(buffer_frames)
-                        frames_to_process = context_frames + all_frames[-speech_duration:]
-                        
-                        # Launch process_voice_query asynchronously
-                        threading.Thread(
-                            target=process_voice_query, 
-                            args=(frames_to_process, pa, audio_stream),
-                            daemon=True
-                        ).start()
-                        
-                        # Reset state
-                        speech_detected = False
                         silence_count = 0
+                        # Reset inactivity timer when user starts speaking
+                        inactivity_counter = 0
+                        ai_finished_speaking_time = 0
+                        waiting_for_ai_response = False
+                        
+                        # Transfer buffer frames to all_frames for processing
+                        all_frames = list(buffer_frames)
+                        log("New speech detected in continuous recording", "AUDIO")
+                else:
+                    # Speech already detected, keep recording everything
+                    all_frames.append(data)
+                    
+                    if rms > SILENCE_THRESHOLD:
+                        # Reset silence counter since we heard something
+                        silence_count = 0
+                    else:
+                        # Count silence after speech
+                        silence_count += 1
+                        
+                        # If we've had enough silence after speech, process it
+                        if silence_count > SILENCE_CHUNKS:
+                            log("Speech followed by silence - processing query", "AUDIO")
+                            prompt_end_time = time.time()
+                            
+                            # Process the recorded frames
+                            frames_to_process = all_frames.copy()
+                            
+                            # Launch process_voice_query asynchronously
+                            threading.Thread(
+                                target=process_voice_query, 
+                                args=(frames_to_process, pa, audio_stream),
+                                daemon=True
+                            ).start()
+                            
+                            # Reset state
+                            speech_detected = False
+                            silence_count = 0
+                            all_frames = []  # Wipe all frames after processing
+                            buffer_frames.clear()  # Also clear buffer frames
+                            rms_history.clear()  # Clear RMS history
+                            
+                            # Mark that we're waiting for AI response
+                            waiting_for_ai_response = True
                 
-                # Always update buffer frames
-                buffer_frames.append(data)
-        
+                # Check if we need to start/continue inactivity counting
+                if not speech_detected and not is_ai_speaking and not waiting_for_ai_response:
+                    # If AI has just finished speaking, mark the time
+                    if ai_finished_speaking_time == 0:
+                        ai_finished_speaking_time = time.time()
+                        log("AI finished speaking - starting inactivity timer", "INFO")
+                    
+                    # Count inactivity
+                    inactivity_counter += 1
+                    
+                    # Check if we've reached the timeout
+                    if inactivity_counter >= INACTIVITY_TIMEOUT:
+                        log("Inactivity timeout reached (15 seconds) - closing conversation", "INFO")
+                        stop_continuous_recording()
+                        break
+                else:
+                    # Reset inactivity counter if there's any activity
+                    if inactivity_counter > 0:
+                        log("Activity detected - resetting inactivity timer", "INFO")
+                    inactivity_counter = 0
+                    ai_finished_speaking_time = 0
+                
         except Exception as e:
             log(f"Error in continuous recording: {e}", "ERROR")

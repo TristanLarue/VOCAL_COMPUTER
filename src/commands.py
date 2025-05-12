@@ -11,7 +11,7 @@ def execute_command(cmd, param, audio_stream=None):
     if cmd.lower() == "screenshot":
         try:
             # Import the screenshot module
-            from screenshot import capture_screen, capture_all_screens, list_monitors
+            from modules.screenshot import capture_screen, capture_all_screens, list_monitors
             
             # Parse the parameter to determine which monitor to capture
             if param.lower() == "all":
@@ -84,23 +84,6 @@ def execute_command(cmd, param, audio_stream=None):
         log("Exit command received, stopping continuous recording", "COMMAND")
         from transcribe import stop_continuous_recording
         stop_continuous_recording()
-        
-        # Import here to avoid circular imports
-        from triggers import initialize_wake_word_mode, set_wake_word_active
-        # Switch back to wake word detection mode
-        initialize_wake_word_mode()
-        # Explicitly set wake word active state
-        set_wake_word_active(True)
-        
-        # Reset any state that might prevent wake word detection
-        from sounds import play_close_sound,reset_speech_state
-        play_close_sound()
-        reset_speech_state()
-        
-        # Reset conversation memory
-        from memory import reset_memory
-        reset_memory()
-        
         return "Conversation ended. Waiting for wake word."
     
     # Placeholder command implementations
