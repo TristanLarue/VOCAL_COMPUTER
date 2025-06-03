@@ -56,6 +56,36 @@ def main():
     # Import the continuous recording module
     from transcribe import start_continuous_recording
     
+    # --- BEGIN: Terminal input thread for manual prompt ---
+    def terminal_input_loop(audio_stream, pa):
+        from chat import call_chatgpt, extract_commands
+        from memory import get_memory, update_memory
+        from sounds import speak_text
+        from transcribe import set_ai_speaking_state
+        from commands import execute_command
+        while True:
+            try:
+                user_input = input(f"{Colors.BOLD}{Colors.BYPASS}[Type prompt]:{Colors.ENDC} ")
+                if not user_input.strip():
+                    continue
+                log(f"Manual prompt: {user_input}", "BYPASS")
+                conversation_memory = get_memory()
+                answer = call_chatgpt(user_input, conversation_memory)
+                update_memory(user_input, answer)
+                clean_text, commands = extract_commands(answer)
+                clean_text = clean_text.strip()
+                log(f"Speaking: {clean_text}", "BYPASS")
+                set_ai_speaking_state(True)
+                if clean_text:
+                    speak_text(clean_text, audio_stream)
+                set_ai_speaking_state(False)
+                for cmd, param in commands:
+                    result = execute_command(cmd, param, audio_stream)
+                    log(f"Command [{cmd}({param})] result: {result}", "COMMAND")
+            except Exception as e:
+                log(f"Terminal input error: {e}", "ERROR")
+    # --- END: Terminal input thread for manual prompt ---
+
     try:
         log("Startup complete. Say 'Computer' to activate.", "SYSTEM")
         
@@ -63,6 +93,8 @@ def main():
         from triggers import process_wake_word
         from sounds import play_open_sound
         
+        # Start terminal input thread (non-blocking)
+        threading.Thread(target=terminal_input_loop, args=(audio_stream, pa), daemon=True).start()
         while True:
             # Check if we should be in wake word mode
             if get_wake_word_active():

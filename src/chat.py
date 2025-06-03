@@ -8,6 +8,20 @@ from mimetypes import guess_type
 from dotenv import load_dotenv
 
 from utils import log, Colors
+from commands import COMMAND_DICTIONARY
+
+def format_command_list(cmd_dict):
+    lines = []
+    for cmd, info in cmd_dict.items():
+        args = info.get("arguments", {})
+        arg_str = ",".join(f"{k}:{v}" for k, v in args.items())
+        if arg_str:
+            arg_str = f"({arg_str})"
+        else:
+            arg_str = "()"
+        desc = info.get("description", "")
+        lines.append(f"[{cmd}{arg_str}] - {desc}")
+    return "\n".join(lines)
 
 # Load environment variables
 load_dotenv()
@@ -16,7 +30,7 @@ load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # System prompts
-base_prompt = '''
+base_prompt = f'''
 You are "Computer", a voice assistant speaking with Tristan. Your responses will be spoken aloud through text-to-speech, so clarity and brevity are essential.
 Important guidelines:
 - Keep initial responses concise (1-3 short sentences) with simple, everyday vocabulary
@@ -34,18 +48,8 @@ Important guidelines:
 - Do not use any discourse markers at the start of your response
 - When a conversation is coming to an end (user says goodbye, thank you, or indicates they're done), use the [exit()] command to end the session
 
-COMMAND SYSTEM:
-You can execute commands by including them in your response using the following format: [command(parameter)]
-
-Available commands include:
-- [calendar(action)] - Access calendar (actions: view, add, next)
-- [timer(minutes)] - Set a timer for specified minutes
-- [alarm(time)] - Set an alarm (format: HH:MM)
-- [music(query)] - Play music matching the query
-- [browse(URL)] - Open a chrome web page for the user
-- [screenshot(screenNumber)] - Take a screenshot (1 for main/right screen, 2 for second/left screen), MUST COMBINE WITH "prompt()" TO ANALYZE THE IMAGE
-- [prompt(text,filename)] - Sends a new stateless prompt to yourself with an image file name if needed in order to analyze it. The prompt must be formulated as if I was the one talking and it must be very precice about exactly what you want.
-- [exit()] - End the conversation and return to wake word mode
+Available commands:
+{format_command_list(COMMAND_DICTIONARY)}
 
 EXAMPLES:
 - "I've taken a screenshot of your main screen [screenshot(1)]"
@@ -65,15 +69,21 @@ chat_start = 0
 chat_end = 0
 
 def extract_commands(text):
-    """Extract commands from text and return both cleaned text and command list"""
+    """Extract all commands from text and return both cleaned text and command list"""
     commands = []
+    # Find all [command(param)] patterns
     for match in re.finditer(COMMAND_PATTERN, text):
         cmd, param = match.groups()
         commands.append((cmd, param))
-    
-    # Replace command markers with empty string to get clean text for TTS
+    # Remove ALL command patterns from the text for TTS
     cleaned_text = re.sub(COMMAND_PATTERN, '', text)
     return cleaned_text, commands
+
+# Utility for logging command summary
+def log_command_summary(commands):
+    if commands:
+        formatted = ', '.join([f'[{cmd}({param})]' for cmd, param in commands])
+        log(f"{len(commands)} command(s) detected: {formatted}", "COMMAND")
 
 def encode_image_to_base64(image_path):
     """Convert an image file to a base64 encoded string with MIME type"""
@@ -91,7 +101,6 @@ def encode_image_to_base64(image_path):
     return f"data:{mime_type};base64,{b64_data}"
 
 def call_chatgpt(question, conversation_memory, image_path=None):
-    """Call the OpenAI API to get a response, optionally with an image"""
     global chat_start, chat_end
     
     log(f"Sending to ChatGPT: {Colors.BOLD}{question}{Colors.ENDC}", "GPT")
@@ -138,5 +147,9 @@ def call_chatgpt(question, conversation_memory, image_path=None):
     
     answer = response.choices[0].message.content.strip()
     log(f"Response generation duration: {Colors.BOLD}{(chat_end-chat_start):.3f}s{Colors.ENDC}", "TIMING")
+    log(f"Prompt result: {answer}", "GPT")
+    # Log command summary if any
+    _, commands = extract_commands(answer)
+    log_command_summary(commands)
     
     return answer

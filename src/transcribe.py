@@ -108,33 +108,20 @@ def process_voice_query(frames, pa, audio_stream):
     from chat import extract_commands
     clean_text, commands = extract_commands(answer)
     clean_text = clean_text.strip()  # Remove any trailing whitespace after command removal
-    
+
     log(f"Speaking: {Colors.BOLD}{clean_text}{Colors.ENDC}", "INFO")
-    if commands:
-        log(f"Commands detected: {len(commands)}", "COMMAND")
-    
-    # Import here to avoid circular imports
+    # No per-command logs here; summary is handled in chat.py
+
     from commands import execute_command
-    
+
     # First, speak the response regardless of commands
     if clean_text:
         speak_text(clean_text, audio_stream)
-    
-    # Now execute commands after speaking is done
-    has_exit_command = False
+
+    # Now execute commands after speaking is done, one by one
     for cmd, param in commands:
-        if cmd.lower() == "exit":
-            has_exit_command = True
-            # Save exit for last
-            continue
-            
         result = execute_command(cmd, param, audio_stream)
-        log(f"Command result: {result}", "COMMAND")
-    
-    # Execute exit command last if present
-    if has_exit_command:
-        result = execute_command("exit", "", audio_stream)
-        log(f"Command result: {result}", "COMMAND")
+        log(f"Command [{cmd}({param})] result: {result}", "COMMAND")
 
 def get_prompt_end_time():
     """Return the time when the prompt ended"""

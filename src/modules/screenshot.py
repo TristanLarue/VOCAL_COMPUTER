@@ -7,7 +7,8 @@ import numpy as np
 from PIL import Image
 
 # Define the temporary directory for screenshots
-SCREENSHOT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "temp")
+SCREENSHOT_DIR = os.path.join(os.getcwd(), "temp")
+
 
 def ensure_screenshot_dir():
     """Ensure the screenshots directory exists"""
@@ -110,6 +111,23 @@ def capture_all_screens(filename=None):
     except Exception as e:
         log(f"Screenshot error: {e}", "ERROR")
         return None
+
+def run(param, audio_stream=None):
+    try:
+        from modules.screenshot import capture_screen, capture_all_screens, list_monitors
+        if param.lower() == "all":
+            filepath = capture_all_screens()
+            return f"Screenshot of all monitors saved to {filepath}"
+        else:
+            try:
+                monitor_num = int(param) if param else 1
+            except ValueError:
+                monitor_num = 1
+            filepath = capture_screen(monitor_num)
+            return f"Screenshot of monitor {monitor_num} saved to {filepath}"
+    except Exception as e:
+        log(f"Screenshot command error: {e}", "ERROR")
+        return "I couldn't take a screenshot due to an error."
 
 # Test the functionality if run directly
 if __name__ == "__main__":
