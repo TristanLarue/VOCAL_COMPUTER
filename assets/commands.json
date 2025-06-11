@@ -1,0 +1,34 @@
+{
+  "commands": [
+    {
+      "name": "screenshot",
+      "description": "Take a screenshot of the current screen.",
+      "module": "screenshot.py",
+      "parameters": ["monitorId:int", "filename:string"]
+    },
+    {
+      "name": "speak",
+      "description": "Speak a given text using TTS.",
+      "module": "speak.py",
+      "parameters": ["text:string"]
+    },
+    {
+      "name": "prompt",
+      "description": "Send a prompt to the user and await input.",
+      "module": "prompt.py",
+      "parameters": ["message:string"]
+    },
+    {
+      "name": "exit",
+      "description": "End the session and force the assistant to return to sleep mode (wake-word detection).",
+      "module": "exit.py",
+      "parameters": []
+    },
+    {
+      "name": "wait",
+      "description": "Wait for a specified number of seconds before continuing.",
+      "module": "wait.py",
+      "parameters": ["seconds:int"]
+    }
+  ]
+}

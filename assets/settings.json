@@ -1,0 +1,9 @@
+{
+  "humor": 0,
+  "formality": 50,
+  "objectivity": 50,
+  "creativity": 50,
+  "politeness": 100,
+  "speed": 50,
+  "allow_thinking": false
+}
