@@ -51,7 +51,7 @@ def setup_triggers(on_transcription):
             frames_per_buffer=512,
         )
         on_transcription_callback = on_transcription
-        log("Triggers setup complete", "SYSTEM", script="TRIGGERS")
+        log("Triggers setup complete", "SYSTEM")
     except Exception as e:
         log(f"Error in setup_triggers: {e}\n{traceback.format_exc()}", "ERROR", script="TRIGGERS")
 
@@ -64,7 +64,11 @@ def stop_triggers():
         if pa:
             pa.terminate()
         if porcupine:
-            porcupine.delete()
+            try:
+                porcupine.delete()
+            except Exception as e:
+                log(f"Error deleting porcupine: {e}", "ERROR", script="TRIGGERS")
+            porcupine = None
         log("Triggers stopped and resources released", "SYSTEM", script="TRIGGERS")
     except Exception as e:
         log(f"Error in stop_triggers: {e}\n{traceback.format_exc()}", "ERROR", script="TRIGGERS")
@@ -153,11 +157,11 @@ async def _awake_loop():
                 warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
                 fp16_warning_muted = True
             if volume > SILENCE_THRESHOLD:
+                from sounds import IS_ASSISTANT_SPEAKING, interrupt
+                if IS_ASSISTANT_SPEAKING:
+                    interrupt()
+                    log("Ongoing AI speech interrupted by user input.", "TRIGGERS")
                 if not speech_detected:
-                    if IS_ASSISTANT_SPEAKING:
-                        from sounds import interrupt
-                        interrupt()
-                        log("Ongoing AI speech interrupted by user input.", "TRIGGERS")
                     frames = list(buffer_frames)
                     log("User speech detected. Listening for command.", "TRIGGERS")
                 frames.append(pcm)

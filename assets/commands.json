@@ -8,25 +8,25 @@
     },
     {
       "name": "speak",
-      "description": "Speak a given text using TTS.",
+      "description": "Speak a given text using TTS. Usage: /speak(text={\"Hello world\"})",
       "module": "speak.py",
       "parameters": ["text:string"]
     },
     {
       "name": "exit",
-      "description": "End the session and force the assistant to return to sleep mode (wake-word detection).",
+      "description": "End the session and force the assistant to return to sleep mode (wake-word detection). Usage: /exit()",
       "module": "exit.py",
       "parameters": []
     },
     {
       "name": "wait",
-      "description": "Wait for a specified number of seconds before continuing.",
+      "description": "Wait for a specified number of seconds before continuing. Usage: /wait(seconds={3})",
       "module": "wait.py",
       "parameters": ["seconds:int"]
     },
     {
       "name": "settings",
-      "description": "Modifies an existing setting in settings.json. Only existing settings can be changed; new settings cannot be added.",
+      "description": "Modifies an existing setting in settings.json. Only existing settings can be changed; new settings cannot be added. Usage: /settings(key={\"auto-conversation-end\"})",
       "module": "settings.py",
       "parameters": ["key:string", "value:string|int|bool"]
     }

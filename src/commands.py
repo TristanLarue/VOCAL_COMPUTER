@@ -74,8 +74,7 @@ async def execute_command_line_async(line):
 async def execute_commands_from_response_block_sync(response_block):
     for line in response_block.split('\n'):
         await execute_command_line_sync(line)
-        if line.strip().startswith('/'):
-            log(f"Command execution started: {line.strip()}", "COMMAND")
+
 
 async def execute_command_line_sync(line):
     line = line.strip()
@@ -101,20 +100,18 @@ async def execute_command_line_sync(line):
 
 def parse_command(line):
     import re
-    match = re.match(r"/(\w+)\((.*)\)", line)
-    if not match:
-        raise ValueError(f"Invalid command format: {line}")
-    cmd_name = match.group(1)
-    params_str = match.group(2)
-    params = {}
-    if params_str:
-        for param in re.split(r",(?=(?:[^']*'[^']*')*[^']*$)", params_str):
-            if '=' in param:
-                key, value = param.split('=', 1)
-                value = value.strip()
-                if value.startswith("'") and value.endswith("'"):
-                    value = value[1:-1]
-                elif value.isdigit():
-                    value = int(value)
-                params[key.strip()] = value
-    return cmd_name, params
+    # Accept both /moduleName() and /moduleName(key={value})
+    match_with_param = re.match(r"/(\w+)\((\w+)=\{((?:[^{}]|\\{|\\})*)\}\)", line)
+    if match_with_param:
+        cmd_name = match_with_param.group(1)
+        key = match_with_param.group(2)
+        value = match_with_param.group(3)
+        if value.startswith('"') and value.endswith('"'):
+            value = value[1:-1]
+        params = {key: value}
+        return cmd_name, params
+    match_no_param = re.match(r"/(\w+)\(\)", line)
+    if match_no_param:
+        cmd_name = match_no_param.group(1)
+        return cmd_name, {}
+    raise ValueError(f"Invalid command format: {line}")

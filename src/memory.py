@@ -2,6 +2,26 @@ import os
 import json
 from API import send_openai_request
 
+memory_prompt = '''
+You are a memory assistant for an AI voice assistant named "Computer". Your job is to maintain a short, compressed memory of conversations between Computer and Tristan.
+
+Read the previous memory, the most recent user question, and Computer's response. Then create a new, updated memory that:
+1. Is extremely concise (maximum 300 words)
+2. Prioritizes important facts, preferences, and context
+3. Removes redundant or low-value information
+4. Maintains temporal order of key events
+5. Formats in simple paragraph form
+6. Always includes the exact last query and response at the end for perfect context
+
+Previous memory: {previous_memory}
+
+Recent interaction:
+User: {user_question}
+Computer: {assistant_response}
+
+Provide ONLY the new compressed memory paragraph with no additional text or explanation. Always end the memory with the exact last exchange:
+'''
+
 def summarize_memory(memory, last_user_prompt, last_ai_answer):
     """
     Summarize the conversation memory using OpenAI API, keeping it concise and under 300 words.
@@ -12,17 +32,14 @@ def summarize_memory(memory, last_user_prompt, last_ai_answer):
     Returns:
         dict: The summarized memory as a JSON object with a single key 'summary'.
     """
-    base_prompt = (
-        "You are a memory assistant. Your job is to update the ongoing conversation summary "
-        "by combining the previous summary with the new user prompt and AI response. "
-        "Remove unnecessary details, keep only the most relevant facts, context, and decisions. "
-        "The summary must be under 300 words. Do not include filler, greetings, or repeated information. "
-        "Be concise and clear. If there is no conversation to summarize, do not mention this fact—just say nothing and wait for content to summarize."
-    )
     prev_summary = memory.get('summary', '') if isinstance(memory, dict) else str(memory)
+    formatted_prompt = memory_prompt.format(
+        previous_memory=prev_summary,
+        user_question=last_user_prompt,
+        assistant_response=last_ai_answer
+    )
     messages = [
-        {"role": "system", "content": base_prompt},
-        {"role": "user", "content": f"Previous summary:\n{prev_summary}\n\nNew user prompt:\n{last_user_prompt}\n\nNew AI response:\n{last_ai_answer}"}
+        {"role": "system", "content": formatted_prompt}
     ]
     payload = {
         "model": "gpt-4o",

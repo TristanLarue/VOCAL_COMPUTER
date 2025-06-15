@@ -1,43 +1,66 @@
 import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = 'hide'
 import pygame
 import threading
 import time
+from collections import deque
+from utils import log
 
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = 'hide'
 pygame.mixer.init()
 
 IS_ASSISTANT_SPEAKING = False  # Global flag for speech playback
-
 NON_SPEECH_LOCK = threading.Lock()
-
 FADEOUT_MS = 500
 
+# --- Speech Queue System ---
+speech_queue = deque()
+current_speech_key = None
+speech_lock = threading.Lock()
+speech_worker_thread = None
+
 # --- Main Play Function ---
-def play(sound_path, is_speech=False):
-    """
-    Play an audio file. If is_speech=True, interrupt any current speech and play immediately.
-    If is_speech=False, play immediately (do not interrupt speech or other non-speech sounds).
-    """
-    global IS_ASSISTANT_SPEAKING
+def play(sound_path, is_speech=False, speech_key=None):
+    global IS_ASSISTANT_SPEAKING, current_speech_key, speech_worker_thread
     if is_speech:
-        interrupt()  # Interrupt any current speech
-        threading.Thread(target=_play_blocking, args=(sound_path,), daemon=True).start()
+        with speech_lock:
+            # If a new key is detected, clear queue and set new key
+            if current_speech_key is None or (speech_key is not None and speech_key > current_speech_key):
+                speech_queue.clear()
+                current_speech_key = speech_key if speech_key is not None else time.time()
+            # Only queue if the key matches the current key (ignore old/invalid keys)
+            if speech_key == current_speech_key:
+                speech_queue.append(sound_path)
+                if not speech_worker_thread or not speech_worker_thread.is_alive():
+                    speech_worker_thread = threading.Thread(target=_speech_worker, daemon=True)
+                    speech_worker_thread.start()
+            else:
+                # Ignore speech with a lower or unrelated key
+                log(f"[SOUNDS] play() ignored: speech_key {speech_key} != current_speech_key {current_speech_key}", level="DEBUG", script="SOUNDS")
     else:
         threading.Thread(target=_play_now, args=(sound_path,), daemon=True).start()
 
-# --- Blocking Play (for speech) ---
-def _play_blocking(sound_path):
-    global IS_ASSISTANT_SPEAKING
-    try:
+# --- Speech Worker ---
+def _speech_worker():
+    global IS_ASSISTANT_SPEAKING, current_speech_key
+    while True:
+        with speech_lock:
+            if not speech_queue:
+                IS_ASSISTANT_SPEAKING = False
+                current_speech_key = None
+                break
+            sound_path = speech_queue.popleft()
         IS_ASSISTANT_SPEAKING = True
-        sound = pygame.mixer.Sound(sound_path)
-        channel = sound.play()
-        while channel.get_busy():
-            time.sleep(0.01)
-    except Exception:
-        pass
-    finally:
-        IS_ASSISTANT_SPEAKING = False
+        try:
+            sound = pygame.mixer.Sound(sound_path)
+            channel = sound.play()
+            while channel.get_busy():
+                time.sleep(0.01)
+            # Add a small natural pause between sentences
+            time.sleep(0.18)
+        except Exception:
+            pass
+        finally:
+            IS_ASSISTANT_SPEAKING = False
 
 # --- Immediate Play (for non-speech) ---
 def _play_now(sound_path):
@@ -45,19 +68,14 @@ def _play_now(sound_path):
         try:
             sound = pygame.mixer.Sound(sound_path)
             channel = sound.play()
-            # Optionally fade out any non-speech sound after a short time
-            # time.sleep(1.0)
-            # channel.fadeout(FADEOUT_MS)
         except Exception:
             pass
 
-# --- Utility for compatibility ---
 def is_speaking():
     global IS_ASSISTANT_SPEAKING
     return IS_ASSISTANT_SPEAKING
 
 # --- Backwards compatibility for other scripts ---
-# These can be replaced in other scripts with play(path, is_speech=True/False)
 ASSETS_PATH = os.path.join(os.path.dirname(__file__), '../assets')
 OPEN_SOUND = os.path.join(ASSETS_PATH, 'open.wav')
 CLOSE_SOUND = os.path.join(ASSETS_PATH, 'close.wav')
@@ -73,15 +91,20 @@ def play_pop_sound():
     play(POP_SOUND, is_speech=False)
 
 def interrupt():
-    """
-    Interrupts all current speech: fades out the current speech playback only.
-    """
-    global IS_ASSISTANT_SPEAKING
+    global IS_ASSISTANT_SPEAKING, current_speech_key, speech_worker_thread
     try:
-        # Fade out any currently playing speech (but not non-speech sounds)
-        for channel in [pygame.mixer.Channel(i) for i in range(pygame.mixer.get_num_channels())]:
+        with speech_lock:
+            # Increment speech key as a number so no other speech of the same key can be played
+            if current_speech_key is not None:
+                current_speech_key += 1
+            # Wipe the queue
+            speech_queue.clear()
+        # Fade out all currently playing speech (do not call stop immediately after fadeout)
+        for i in range(pygame.mixer.get_num_channels()):
+            channel = pygame.mixer.Channel(i)
             if channel.get_busy():
                 channel.fadeout(FADEOUT_MS)
         IS_ASSISTANT_SPEAKING = False
-    except Exception:
-        pass
+        log(f"interrupt() called, queue cleared, all speech faded out.", level="DEBUG", script="SOUNDS")
+    except Exception as e:
+        log(f"interrupt() error: {e}", level="ERROR", script="SOUNDS")
