@@ -2,7 +2,7 @@ import os
 import tempfile
 import requests
 from utils import log
-from sounds import force_play_sound
+from sounds import play
 
 def run(text=None, **kwargs):
     if not text:
@@ -27,9 +27,16 @@ def run(text=None, **kwargs):
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     f.write(chunk)
-        log(f"TTS audio generated and saved to temporary file: {temp_path}", "TTS")
-        force_play_sound(temp_path, is_speech=True)
-        os.remove(temp_path)
-        log("Temporary TTS audio file removed after playback.", "TTS")
+        play(temp_path, is_speech=True)
+        # Wait for the file to be released by pygame before deleting
+        import time
+        for _ in range(100):  # Wait up to 2 seconds
+            try:
+                os.remove(temp_path)
+                break
+            except PermissionError:
+                time.sleep(0.02)
+        else:
+            log(f"Could not remove temp file (still in use): {temp_path}", "WARNING")
     except Exception as e:
         log(f"Error during TTS synthesis or playback: {e}", "ERROR")

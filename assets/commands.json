@@ -13,12 +13,6 @@
       "parameters": ["text:string"]
     },
     {
-      "name": "prompt",
-      "description": "Send a prompt to the user and await input.",
-      "module": "prompt.py",
-      "parameters": ["message:string"]
-    },
-    {
       "name": "exit",
       "description": "End the session and force the assistant to return to sleep mode (wake-word detection).",
       "module": "exit.py",
@@ -29,6 +23,12 @@
       "description": "Wait for a specified number of seconds before continuing.",
       "module": "wait.py",
       "parameters": ["seconds:int"]
+    },
+    {
+      "name": "settings",
+      "description": "Modifies an existing setting in settings.json. Only existing settings can be changed; new settings cannot be added.",
+      "module": "settings.py",
+      "parameters": ["key:string", "value:string|int|bool"]
     }
   ]
 }

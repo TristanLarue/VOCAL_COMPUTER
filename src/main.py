@@ -30,6 +30,18 @@ def main():
             log(f"Exception in run_triggers: {e}\n{traceback.format_exc()}", "ERROR")
         finally:
             stop_triggers()
+            # --- Wipe memory if permanent-memory is false ---
+            try:
+                import json
+                from utils import get_settings
+                settings = get_settings()
+                memory_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../assets/memory.json'))
+                if settings and not settings.get('permanent-memory', False):
+                    with open(memory_path, 'w', encoding='utf-8') as f:
+                        json.dump({"summary": ""}, f, indent=2)
+                    log("Memory wiped on shutdown (permanent-memory is false).", "MEMORY")
+            except Exception as e:
+                log(f"Error wiping memory on shutdown: {e}", "ERROR")
             log("Shutdown complete. Goodbye!", "SYSTEM")
     except Exception as e:
         log(f"Fatal error in main: {e}\n{traceback.format_exc()}", "ERROR")

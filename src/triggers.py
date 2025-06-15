@@ -9,8 +9,8 @@ import time
 import os
 import traceback
 from dotenv import load_dotenv
-from utils import log
-from sounds import play_open_sound, play_close_sound, play_pop_sound
+from utils import log, get_settings
+from sounds import play
 import collections
 
 load_dotenv()
@@ -112,13 +112,13 @@ async def _sleep_mode():
             access_key=PORCUPINE_ACCESS_KEY,
             keywords=[WAKE_WORD],
         )
-        log("Listening for wake word. Assistant is in sleep mode.", "TRIGGERS")
+        log("Listening for wake word 'COMPUTER'. Assistant is in sleep mode.", "TRIGGERS")
         while True:
             pcm = stream.read(porcupine.frame_length, exception_on_overflow=False)
             keyword_index = porcupine.process(np.frombuffer(pcm, dtype=np.int16))
             if keyword_index >= 0:
-                from sounds import play_open_sound
-                play_open_sound()
+                from sounds import play
+                play(os.path.join(os.path.dirname(__file__), '../assets/open.wav'), is_speech=False)
                 log(f"Wake word '{WAKE_WORD}' detected. Switching to awake mode.", "TRIGGERS")
                 porcupine.delete()
                 return "awake"
@@ -130,6 +130,10 @@ async def _sleep_mode():
 async def _awake_loop():
     global frames, speech_detected, last_speech_time, IS_ASSISTANT_AWAKE
     from sounds import IS_ASSISTANT_SPEAKING
+    import time
+    import collections
+    import asyncio
+    from utils import get_settings, log
     buffer_size = int(SAMPLE_RATE / 1024 * 2)
     buffer_frames = collections.deque(maxlen=buffer_size)
     frames = []
@@ -138,6 +142,7 @@ async def _awake_loop():
     fp16_warning_muted = False
     silence_chunks = 0
     chunk_size = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000)
+    auto_convo_end = get_settings().get('auto-conversation-end')
     while IS_ASSISTANT_AWAKE:
         try:
             pcm = stream.read(chunk_size, exception_on_overflow=False)
@@ -150,8 +155,8 @@ async def _awake_loop():
             if volume > SILENCE_THRESHOLD:
                 if not speech_detected:
                     if IS_ASSISTANT_SPEAKING:
-                        from sounds import interrupt_sounds
-                        interrupt_sounds()
+                        from sounds import interrupt
+                        interrupt()
                         log("Ongoing AI speech interrupted by user input.", "TRIGGERS")
                     frames = list(buffer_frames)
                     log("User speech detected. Listening for command.", "TRIGGERS")
@@ -174,12 +179,16 @@ async def _awake_loop():
                 speech_detected = False
                 last_speech_time = time.time()
                 asyncio.create_task(_handle_speech_end(frames_to_process))
+            # Always count silence, but only trigger auto-end if setting is true
             if (time.time() - last_speech_time) > INACTIVITY_TIMEOUT:
-                from sounds import play_close_sound
-                play_close_sound()
-                log("No activity detected. Returning to sleep mode.", "TRIGGERS")
-                IS_ASSISTANT_AWAKE = False
-                break
+                from utils import get_settings
+                auto_convo_end = get_settings().get('auto-conversation-end')
+                if auto_convo_end:
+                    from sounds import play
+                    play(os.path.join(os.path.dirname(__file__), '../assets/close.wav'), is_speech=False)
+                    log("No activity detected. Returning to sleep mode.", "TRIGGERS")
+                    IS_ASSISTANT_AWAKE = False
+                    break
             await asyncio.sleep(0.01)
         except Exception as e:
             log(f"Awake loop error: {e}\n{traceback.format_exc()}", "ERROR")
@@ -198,9 +207,10 @@ async def _handle_speech_end(frames):
             return
         if on_transcription_callback:
             on_transcription_callback(text)
-        from sounds import play_pop_sound
-        play_pop_sound()
-        asyncio.create_task(prompt_manager(text))
+        from sounds import play
+        play(os.path.join(os.path.dirname(__file__), '../assets/pop.wav'), is_speech=False)
+        # Only await prompt_manager, do not create multiple tasks
+        await prompt_manager(text)
     except Exception as e:
         log(f"Error during speech end handling: {e}\n{traceback.format_exc()}", "ERROR")
 
@@ -209,18 +219,22 @@ async def prompt_manager(user_text):
     try:
         from API import send_openai_request
         import json, os
+        # Load baseprompt, settings, commands, and memory
         with open(os.path.join(os.path.dirname(__file__), '../assets/baseprompt.json'), 'r', encoding='utf-8') as f:
             baseprompt = json.load(f)
         with open(os.path.join(os.path.dirname(__file__), '../assets/settings.json'), 'r', encoding='utf-8') as f:
             settings = json.load(f)
         with open(os.path.join(os.path.dirname(__file__), '../assets/commands.json'), 'r', encoding='utf-8') as f:
             commands = json.load(f).get('commands', [])
+        with open(os.path.join(os.path.dirname(__file__), '../assets/memory.json'), 'r', encoding='utf-8') as f:
+            memory = json.load(f)
         baseprompt['settings'] = settings
         baseprompt['commands'] = commands
+        baseprompt['memory'] = memory.get('summary', '') if isinstance(memory, dict) else str(memory)
         baseprompt['user_prompt'] = user_text
         prompt = json.dumps(baseprompt, ensure_ascii=False)
         payload = {
-            "model": "gpt-4-1106-preview",
+            "model": "gpt-4o",
             "messages": [{"role": "user", "content": prompt}]
         }
         log(f"Sending user prompt to ChatGPT. Awaiting response...", "GPT")
@@ -232,6 +246,23 @@ async def prompt_manager(user_text):
         except Exception as e:
             log(f"Malformed API response: {response}\n{e}", "ERROR")
         if content:
+            # Summarize memory immediately (async, non-blocking)
+            try:
+                import asyncio
+                from memory import summarize_memory
+                async def summarize_and_save():
+                    import json, os
+                    mem_path = os.path.join(os.path.dirname(__file__), '../assets/memory.json')
+                    with open(mem_path, 'r', encoding='utf-8') as f:
+                        old_mem = json.load(f)
+                    summary_obj = await asyncio.to_thread(summarize_memory, old_mem, user_text, content)
+                    if summary_obj:
+                        with open(mem_path, 'w', encoding='utf-8') as f:
+                            json.dump(summary_obj, f, indent=2, ensure_ascii=False)
+                asyncio.create_task(summarize_and_save())
+                log("Memory summarization task started.", "MEMORY")
+            except Exception as e:
+                log(f"Error starting memory summarization: {e}\n{traceback.format_exc()}", "ERROR")
             from commands import execute_commands_from_response_block_sync
             for line in content.split('\n'):
                 if line.strip().startswith('/'):

@@ -25,7 +25,8 @@
     "You may output multiple commands in a single response by putting each command on a separate line. Each command will be executed in order, from top to bottom.",
     "You must always use the /speak command to communicate with Tristan. Use /speak to confirm actions, provide answers, or give status updates.",
     "If you do not use /speak, Tristan will not hear your response and will be left in silence.",
-    "Each command name is always linked to a single module. All parameters are passed to the module's 'run' function, which handles all actions and interactions for that command."
+    "Each command name is always linked to a single module. All parameters are passed to the module's 'run' function, which handles all actions and interactions for that command.",
+    "The memory context provided only contains a summary of the conversation. The last_prompt and last_response fields are not part of the current user prompt and should not be referenced in your response."
   ],
   "settings": {
     "humor": 0,

@@ -1,4 +1,6 @@
 from datetime import datetime
+import json
+import os
 
 class Colors:
     """ANSI color codes for console output"""
@@ -39,3 +41,13 @@ def log(message, level="INFO", script=None):
         color = Colors.INFO
     script_tag = f"[{script}]" if script else ""
     print(f"{color}[{timestamp}] [{level}]{script_tag}{Colors.ENDC} {message}")
+
+def get_settings():
+    """Return the entire settings.json as a dict, or None on error."""
+    try:
+        settings_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../assets/settings.json'))
+        with open(settings_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        log(f"Error reading all settings: {e}", "ERROR")
+        return None
