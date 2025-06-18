@@ -10,7 +10,7 @@ import os
 import traceback
 from dotenv import load_dotenv
 from utils import log, get_settings
-from sounds import play
+from sounds import play_sound_effect, IS_ASSISTANT_SPEAKING, interrupt_speech
 import collections
 
 load_dotenv()
@@ -123,8 +123,7 @@ async def _sleep_mode():
             pcm = stream.read(porcupine.frame_length, exception_on_overflow=False)
             keyword_index = porcupine.process(np.frombuffer(pcm, dtype=np.int16))
             if keyword_index >= 0:
-                from sounds import play
-                play(os.path.join(os.path.dirname(__file__), '../assets/open.wav'), is_speech=False)
+                play_sound_effect(os.path.join(os.path.dirname(__file__), '../assets/open.wav'))
                 log(f"Wake word '{WAKE_WORD}' detected. Switching to awake mode.", "TRIGGERS")
                 porcupine.delete()
                 return "awake"
@@ -135,11 +134,9 @@ async def _sleep_mode():
 
 async def _awake_loop():
     global frames, speech_detected, last_speech_time, IS_ASSISTANT_AWAKE
-    from sounds import IS_ASSISTANT_SPEAKING
-    import time
     import collections
-    import asyncio
-    from utils import get_settings, log
+    import time
+    from utils import get_settings
     buffer_size = int(SAMPLE_RATE / 1024 * 2)
     buffer_frames = collections.deque(maxlen=buffer_size)
     rms_history = collections.deque(maxlen=int(1000 / FRAME_DURATION_MS))  # Store last ~1s of RMS values
@@ -158,9 +155,8 @@ async def _awake_loop():
             now = time.time()
             # Use average RMS over last second for interruption
             if avg_rms > SILENCE_THRESHOLD:
-                from sounds import IS_ASSISTANT_SPEAKING, interrupt
                 if IS_ASSISTANT_SPEAKING:
-                    interrupt()
+                    interrupt_speech(fade_out=True)
                     log(f"Ongoing AI speech interrupted by user input (avg RMS {avg_rms:.2f} > threshold {SILENCE_THRESHOLD})", "TRIGGERS")
                 if not speech_detected:
                     frames = list(buffer_frames)
@@ -189,8 +185,7 @@ async def _awake_loop():
                 from utils import get_settings
                 auto_convo_end = get_settings().get('auto-conversation-end')
                 if auto_convo_end:
-                    from sounds import play
-                    play(os.path.join(os.path.dirname(__file__), '../assets/close.wav'), is_speech=False)
+                    play_sound_effect(os.path.join(os.path.dirname(__file__), '../assets/close.wav'))
                     log("No activity detected. Returning to sleep mode.", "TRIGGERS")
                     IS_ASSISTANT_AWAKE = False
                     break
@@ -212,8 +207,7 @@ async def _handle_speech_end(frames):
             return
         if on_transcription_callback:
             on_transcription_callback(text)
-        from sounds import play
-        play(os.path.join(os.path.dirname(__file__), '../assets/pop.wav'), is_speech=False)
+        play_sound_effect(os.path.join(os.path.dirname(__file__), '../assets/pop.wav'))
         # Only await prompt_manager, do not create multiple tasks
         await prompt_manager(text)
     except Exception as e:

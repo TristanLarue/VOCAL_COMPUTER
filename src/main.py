@@ -2,6 +2,8 @@ from dotenv import load_dotenv
 import os
 import traceback
 from utils import log
+from sounds import start_speech_worker
+import threading
 
 SCRIPT_NAME = "main.py"
 # main.py
@@ -17,6 +19,8 @@ def preload_libraries():
 def main():
     try:
         preload_libraries()
+        # Start the async speech worker
+        start_speech_worker()
         from triggers import setup_triggers, run_triggers, stop_triggers
         setup_triggers(None)
         log("Trigger system initialized. Awaiting wake word.", "SYSTEM", script=SCRIPT_NAME)
@@ -40,15 +44,16 @@ def main():
                     log("Memory wiped on shutdown (permanent-memory is false).", "MEMORY", script=SCRIPT_NAME)
             except Exception as e:
                 log(f"Error wiping memory on shutdown: {e}", "ERROR", script=SCRIPT_NAME)
-            # Clean up temp folder on shutdown
-            import shutil
-            temp_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../temp'))
+            # Clean up temp folder on shutdown only if permanent-memory is false
             try:
-                for filename in os.listdir(temp_dir):
-                    file_path = os.path.join(temp_dir, filename)
-                    if os.path.isfile(file_path):
-                        os.remove(file_path)
-                log("Temp folder cleaned on shutdown.", "SYSTEM", script=SCRIPT_NAME)
+                if settings and not settings.get('permanent-memory', False):
+                    import shutil
+                    temp_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../temp'))
+                    for filename in os.listdir(temp_dir):
+                        file_path = os.path.join(temp_dir, filename)
+                        if os.path.isfile(file_path):
+                            os.remove(file_path)
+                    log("Temp folder cleaned on shutdown.", "SYSTEM", script=SCRIPT_NAME)
             except Exception as e:
                 log(f"Error cleaning temp folder: {e}", "ERROR", script=SCRIPT_NAME)
             log("Shutdown complete. Goodbye!", "SYSTEM", script=SCRIPT_NAME)
