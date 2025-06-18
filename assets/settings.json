@@ -23,5 +23,10 @@
     "setting-id": "transcription-precision",
     "value": 1,
     "description": "Controls the precision of speech-to-text transcription (1: tiny.en, 2: small.en, 3: medium.en)."
+  },
+  {
+    "setting-id": "voice-name",
+    "value": "nova",
+    "description": "The OpenAI TTS voice to use. Must be one of: 'alloy', 'echo', 'fable', 'onyx', 'nova', or 'shimmer'. Strictly use one of these names."
   }
 ]

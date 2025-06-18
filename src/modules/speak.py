@@ -36,13 +36,17 @@ def run(text=None, **kwargs):
             voice_speed = 1
         voice_speed = max(0.5, min(2.0, voice_speed))
 
+        voice_name = settings.get('voice-name', 'nova')
+        valid_voices = {'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'}
+        if voice_name not in valid_voices:
+            voice_name = 'nova'
         def process_sentences():
             temp_paths = []
             for idx, sentence in enumerate(sentences):
                 payload = {
                     "model": "tts-1",
                     "input": sentence,
-                    "voice": "nova",
+                    "voice": voice_name,
                     "speed": voice_speed
                 }
                 response = send_openai_request('audio/speech', payload, stream=True)

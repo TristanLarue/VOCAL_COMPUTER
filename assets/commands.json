@@ -9,7 +9,7 @@
     },
     {
       "name": "speak",
-      "description": "Speak a given text using TTS.",
+      "description": "Speak a given text using TTS. Command format must be '/speak()' with no spaces after the slash.",
       "module": "speak.py",
       "parameters": ["text:string"],
       "usage": "/speak(text={Hello, I am your assistant!})"
@@ -55,7 +55,14 @@
         "filenames:string|list (one or more filenames, separated by comma, semicolon, or pipe)",
         "context:string (REQUIRED! all relevant context or state for the AI to understand the current tought process)"
       ],
-      "usage": "/reprompt(prompt={What is in this file?},filenames={screenshot.png},context={User is reviewing screenshots for errors.})\n/reprompt(prompt={Summarize all these files},filenames={file1.txt,file2.txt},context={These files are meeting notes from last week.})\n/reprompt(prompt={Given the extracted data, what should I do next?},context={Data extracted: ...},filenames={data.csv})"
+      "usage": "/reprompt(prompt={What is in this file?},filenames={screenshot.png},context={User is reviewing screenshots for errors.})\n/reprompt(prompt={Summarize all these files},filenames={file1.txt,file2.txt},context={These files are meeting notes from last week.})"
+    },
+    {
+      "name": "browse",
+      "description": "Open a web page in the default browser using the specified URL. Use this to open Google or any other website for the user.",
+      "module": "browse.py",
+      "parameters": ["url:string (the full URL to open)"],
+      "usage": "/browse(url={https://www.google.com})"
     }
   ]
 }
