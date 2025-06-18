@@ -21,10 +21,7 @@ def send_openai_request(endpoint, payload, headers=None, files=None, stream=Fals
         url = f"https://api.openai.com/v1/{endpoint}"
         if headers is None:
             headers = {"Authorization": f"Bearer {os.getenv('OPENAI_API_KEY', '')}"}
-        if files:
-            response = requests.post(url, headers=headers, data=payload, files=files, stream=stream)
-        else:
-            response = requests.post(url, headers={**headers, "Content-Type": "application/json"}, json=payload, stream=stream)
+        response = requests.post(url, headers={**headers, "Content-Type": "application/json"}, json=payload, stream=stream)
         response.raise_for_status()
         if stream:
             return response  # caller handles streamed data

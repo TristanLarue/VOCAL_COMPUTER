@@ -17,8 +17,8 @@ load_dotenv()
 
 PORCUPINE_ACCESS_KEY = os.getenv("PORCUPINE_ACCESS_KEY")
 WAKE_WORD = "computer"
-SILENCE_THRESHOLD = 500  # Adjust as needed
-SILENCE_CHUNKS = int(16000 / 1024 * 2)  # ~2 seconds of silence, matching oldTriggerRecording
+SILENCE_THRESHOLD = 250  # Lowered threshold for more sensitive speech detection
+SILENCE_CHUNKS = int(16000 / 1024 * 3.5)  # ~3.5 seconds of silence, increased from 2 seconds
 INACTIVITY_TIMEOUT = 15  # seconds
 FRAME_DURATION_MS = 30
 SAMPLE_RATE = 16000
@@ -41,6 +41,8 @@ import asyncio
 # --- SETUP & TEARDOWN ---
 def setup_triggers(on_transcription):
     global pa, stream, on_transcription_callback
+    import warnings
+    warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
     try:
         pa = pyaudio.PyAudio()
         stream = pa.open(
@@ -140,10 +142,10 @@ async def _awake_loop():
     from utils import get_settings, log
     buffer_size = int(SAMPLE_RATE / 1024 * 2)
     buffer_frames = collections.deque(maxlen=buffer_size)
+    rms_history = collections.deque(maxlen=int(1000 / FRAME_DURATION_MS))  # Store last ~1s of RMS values
     frames = []
     speech_detected = False
     last_speech_time = time.time()
-    fp16_warning_muted = False
     silence_chunks = 0
     chunk_size = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000)
     auto_convo_end = get_settings().get('auto-conversation-end')
@@ -151,16 +153,15 @@ async def _awake_loop():
         try:
             pcm = stream.read(chunk_size, exception_on_overflow=False)
             volume = rms(pcm)
+            rms_history.append(volume)
+            avg_rms = sum(rms_history) / len(rms_history) if rms_history else 0
             now = time.time()
-            if not fp16_warning_muted:
-                import warnings
-                warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
-                fp16_warning_muted = True
-            if volume > SILENCE_THRESHOLD:
+            # Use average RMS over last second for interruption
+            if avg_rms > SILENCE_THRESHOLD:
                 from sounds import IS_ASSISTANT_SPEAKING, interrupt
                 if IS_ASSISTANT_SPEAKING:
                     interrupt()
-                    log("Ongoing AI speech interrupted by user input.", "TRIGGERS")
+                    log(f"Ongoing AI speech interrupted by user input (avg RMS {avg_rms:.2f} > threshold {SILENCE_THRESHOLD})", "TRIGGERS")
                 if not speech_detected:
                     frames = list(buffer_frames)
                     log("User speech detected. Listening for command.", "TRIGGERS")
@@ -234,11 +235,12 @@ async def prompt_manager(user_text):
             memory = json.load(f)
         baseprompt['settings'] = settings
         baseprompt['commands'] = commands
-        baseprompt['memory'] = memory.get('summary', '') if isinstance(memory, dict) else str(memory)
+        baseprompt['memory'] = memory  # Load full memory.json as the memory key
         baseprompt['user_prompt'] = user_text
+        # Remove any context logic here; context is only for reprompt
         prompt = json.dumps(baseprompt, ensure_ascii=False)
         payload = {
-            "model": "gpt-4o",
+            "model": "gpt-4.1",
             "messages": [{"role": "user", "content": prompt}]
         }
         log(f"Sending user prompt to ChatGPT. Awaiting response...", "GPT")

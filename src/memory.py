@@ -42,7 +42,7 @@ def summarize_memory(memory, last_user_prompt, last_ai_answer):
         {"role": "system", "content": formatted_prompt}
     ]
     payload = {
-        "model": "gpt-4o",
+        "model": "gpt-4.1",
         "messages": messages
     }
     response = send_openai_request('chat/completions', payload)

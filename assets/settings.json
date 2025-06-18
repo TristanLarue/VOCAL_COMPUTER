@@ -1,5 +1,27 @@
-{
-  "auto-conversation-end": false,
-  "emotional-voice": false,
-  "permanent-memory": true
-}
+[
+  {
+    "setting-id": "auto-conversation-end",
+    "value": false,
+    "description": "Automatically end the conversation after a period of inactivity."
+  },
+  {
+    "setting-id": "emotional-voice",
+    "value": false,
+    "description": "Enable emotional tone in the assistant's voice."
+  },
+  {
+    "setting-id": "permanent-memory",
+    "value": false,
+    "description": "Persist conversation memory between sessions."
+  },
+  {
+    "setting-id": "voice-speed",
+    "value": 1,
+    "description": "Controls the speed of the assistant's voice (0.5 to 2.0)."
+  },
+  {
+    "setting-id": "transcription-precision",
+    "value": 1,
+    "description": "Controls the precision of speech-to-text transcription (1: tiny.en, 2: small.en, 3: medium.en)."
+  }
+]

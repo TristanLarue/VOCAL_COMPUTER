@@ -23,10 +23,16 @@ def play(sound_path, is_speech=False, speech_key=None):
     global IS_ASSISTANT_SPEAKING, current_speech_key, speech_worker_thread
     if is_speech:
         with speech_lock:
-            # If a new key is detected, clear queue and set new key
-            if current_speech_key is None or (speech_key is not None and speech_key > current_speech_key):
+            if current_speech_key is None:
+                # No current key: set the key and clear the queue
                 speech_queue.clear()
                 current_speech_key = speech_key if speech_key is not None else time.time()
+            elif speech_key is not None and speech_key > current_speech_key:
+                # New higher key: interrupt, clear queue, set new key
+                log(f"[SOUNDS] play() interrupting for new higher speech_key {speech_key}", level="DEBUG", script="SOUNDS")
+                interrupt()
+                speech_queue.clear()
+                current_speech_key = speech_key
             # Only queue if the key matches the current key (ignore old/invalid keys)
             if speech_key == current_speech_key:
                 speech_queue.append(sound_path)

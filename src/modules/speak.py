@@ -6,7 +6,7 @@ from sounds import play
 import threading
 import time
 
-def split_sentences_dot(text):
+def split_sentences_dot(text, **kwargs):
     # Split only on period (dot), keep the dot with the sentence
     import re
     sentences = re.findall(r'[^.]+\.|[^.]+$', text)
@@ -16,6 +16,9 @@ def run(text=None, **kwargs):
     if not text:
         log("No text provided to /speak command. Nothing will be spoken.", "ERROR")
         return
+    # If text is a number, convert it back to a string
+    if isinstance(text, (int, float)):
+        text = str(text)
     try:
         from API import send_openai_request
         sentences = split_sentences_dot(text)
@@ -23,13 +26,24 @@ def run(text=None, **kwargs):
         os.makedirs(temp_dir, exist_ok=True)
         speech_key = time.time()
 
+        from utils import get_settings
+        settings = get_settings() or {}
+        voice_speed = settings.get('voice-speed', 1)
+        # Clamp voice speed between 0.5 and 2
+        try:
+            voice_speed = float(voice_speed)
+        except Exception:
+            voice_speed = 1
+        voice_speed = max(0.5, min(2.0, voice_speed))
+
         def process_sentences():
             temp_paths = []
             for idx, sentence in enumerate(sentences):
                 payload = {
                     "model": "tts-1",
                     "input": sentence,
-                    "voice": "nova"
+                    "voice": "nova",
+                    "speed": voice_speed
                 }
                 response = send_openai_request('audio/speech', payload, stream=True)
                 if response is None:

@@ -100,15 +100,28 @@ async def execute_command_line_sync(line):
 
 def parse_command(line):
     import re
-    # Accept both /moduleName() and /moduleName(key={value})
-    match_with_param = re.match(r"/(\w+)\((\w+)=\{((?:[^{}]|\\{|\\})*)\}\)", line)
+    # Accept /moduleName(key1={value1},key2={value2})
+    match_with_param = re.match(r"/(\w+)\((.*)\)", line)
     if match_with_param:
         cmd_name = match_with_param.group(1)
-        key = match_with_param.group(2)
-        value = match_with_param.group(3)
-        if value.startswith('"') and value.endswith('"'):
-            value = value[1:-1]
-        params = {key: value}
+        params_str = match_with_param.group(2)
+        params = {}
+        # Find all key={value} pairs
+        for param_match in re.finditer(r"(\w+)=\{([^{}]*)\}", params_str):
+            key = param_match.group(1)
+            value = param_match.group(2)
+            # Type detection: try int, then float, else string
+            value_strip = value.strip()
+            # Try int
+            try:
+                value_cast = int(value_strip)
+            except ValueError:
+                # Try float
+                try:
+                    value_cast = float(value_strip)
+                except ValueError:
+                    value_cast = value_strip
+            params[key] = value_cast
         return cmd_name, params
     match_no_param = re.match(r"/(\w+)\(\)", line)
     if match_no_param:

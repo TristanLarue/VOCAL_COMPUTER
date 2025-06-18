@@ -11,12 +11,24 @@ from utils import log
 load_dotenv()
 
 _model = None
+_model_name = None
 
 def load_whisper_model():
-    global _model
+    global _model, _model_name
+    from utils import get_settings
+    settings = get_settings() or {}
+    precision = settings.get('transcription-precision', 2)
     try:
-        if _model is None:
-            _model = whisper.load_model("tiny.en")
+        precision = int(precision)
+    except Exception:
+        precision = 2
+    precision = max(1, min(3, precision))
+    model_map = {1: 'tiny.en', 2: 'small.en', 3: 'medium.en'}
+    model_name = model_map.get(precision, 'small.en')
+    try:
+        if _model is None or _model_name != model_name:
+            _model = whisper.load_model(model_name)
+            _model_name = model_name
         return _model
     except Exception as e:
         log(f"Error loading Whisper model: {e}\n{traceback.format_exc()}", "ERROR")

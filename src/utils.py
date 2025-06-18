@@ -43,11 +43,13 @@ def log(message, level="INFO", script=None):
     print(f"{color}[{timestamp}] [{level}]{script_tag}{Colors.ENDC} {message}")
 
 def get_settings():
-    """Return the entire settings.json as a dict, or None on error."""
+    """Return the settings as a dict mapping setting-id to value, for compatibility with old code."""
     try:
         settings_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../assets/settings.json'))
         with open(settings_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            settings_list = json.load(f)
+        # Convert to dict: {setting-id: value}
+        return {s['setting-id']: s['value'] for s in settings_list if 'setting-id' in s and 'value' in s}
     except Exception as e:
         log(f"Error reading all settings: {e}", "ERROR")
         return None

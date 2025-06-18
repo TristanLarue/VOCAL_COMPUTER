@@ -2,33 +2,60 @@
   "commands": [
     {
       "name": "screenshot",
-      "description": "Take a screenshot of the current screen.",
+      "description": "Take a screenshot of a single specified monitor and save it to the /temp directory.",
       "module": "screenshot.py",
-      "parameters": ["monitorId:int", "filename:string"]
+      "parameters": ["monitorId:int (0=main/right/first, 1=secondary/left/second)", "filename:string"],
+      "usage": "/screenshot(monitorId={0},filename={mainshot.png})"
     },
     {
       "name": "speak",
-      "description": "Speak a given text using TTS. Usage: /speak(text={\"Hello world\"})",
+      "description": "Speak a given text using TTS.",
       "module": "speak.py",
-      "parameters": ["text:string"]
+      "parameters": ["text:string"],
+      "usage": "/speak(text={Hello, I am your assistant!})"
     },
     {
       "name": "exit",
-      "description": "End the session and force the assistant to return to sleep mode (wake-word detection). Usage: /exit()",
+      "description": "End the session and force the assistant to return to sleep mode (wake-word detection).",
       "module": "exit.py",
-      "parameters": []
+      "parameters": [],
+      "usage": "/exit()"
     },
     {
       "name": "wait",
-      "description": "Wait for a specified number of seconds before continuing. Usage: /wait(seconds={3})",
+      "description": "Wait for a specified number of seconds before continuing.",
       "module": "wait.py",
-      "parameters": ["seconds:int"]
+      "parameters": ["seconds:int"],
+      "usage": "/wait(seconds={3})"
     },
     {
       "name": "settings",
-      "description": "Modifies an existing setting in settings.json. Only existing settings can be changed; new settings cannot be added. Usage: /settings(key={\"auto-conversation-end\"})",
+      "description": "Modifies an existing setting in settings.json. Only existing settings can be changed; new settings cannot be added.",
       "module": "settings.py",
-      "parameters": ["key:string", "value:string|int|bool"]
+      "parameters": ["key:string", "value:string|int|bool"],
+      "usage": "/settings(key={voice-speed},value={1.2})"
+    },
+    {
+      "name": "clipboard",
+      "description": "Get or set the system clipboard. Use actionType 'get' to save clipboard to a file in /temp, or 'set' to update clipboard with text.",
+      "module": "clipboard.py",
+      "parameters": [
+        "actionType:string (get or set)",
+        "filename:string (required for get)",
+        "text:string (required for set)"
+      ],
+      "usage": "/clipboard(actionType={get},filename={clipboard.txt})\n/clipboard(actionType={set},text={Hello world!})"
+    },
+    {
+      "name": "reprompt",
+      "description": "Send a new prompt to the AI, optionally including one or more files as context. Enables multi-step reasoning and local file analysis.\n\nIMPORTANT: Use the reprompt command EVERY TIME you need the AI to access, analyze, or reason about data from your local machine. This includes reading files, images, screenshots, PDFs, or any other local resource. The reprompt command is the ONLY way to make the AI aware of your local data and environment.\n\nThe context parameter is CRUCIAL: it must always be filled with all relevant information, state, or results from previous steps. This ensures the AI understands the full prompt, the current workflow, and the task at hand. Without a complete context, the AI may not be able to reason correctly or continue multi-step tasks.\n\nThe reprompt command supports multi-step workflows: you can chain reprompt calls to iteratively provide new data, context, or results from previous steps. Always specify the files and any additional context needed for the AI to perform the next reasoning step.\n\nParameters:\n- prompt: The new instruction or question for the AI.\n- filenames: One or more filenames (comma, semicolon, or pipe separated) to attach as context.\n- context: (REQUIRED) All relevant context, state, or results from previous steps to inform the AI's reasoning.\n\nExample use cases:\n- /reprompt(prompt={What is in this file?},filenames={screenshot.png},context={User is reviewing screenshots for errors.})\n- /reprompt(prompt={Summarize all these files},filenames={file1.txt,file2.txt},context={These files are meeting notes from last week.})\n- /reprompt(prompt={Given the extracted data, what should I do next?},context={Data extracted: ...},filenames={data.csv})\n\nBest Practice: Always fill the context parameter with as much relevant information as possible. This ensures robust, context-aware, and secure AI workflows.",
+      "module": "reprompt.py",
+      "parameters": [
+        "prompt:string (the new prompt for the AI)",
+        "filenames:string|list (one or more filenames, separated by comma, semicolon, or pipe)",
+        "context:string (REQUIRED! all relevant context or state for the AI to understand the current tought process)"
+      ],
+      "usage": "/reprompt(prompt={What is in this file?},filenames={screenshot.png},context={User is reviewing screenshots for errors.})\n/reprompt(prompt={Summarize all these files},filenames={file1.txt,file2.txt},context={These files are meeting notes from last week.})\n/reprompt(prompt={Given the extracted data, what should I do next?},context={Data extracted: ...},filenames={data.csv})"
     }
   ]
 }
