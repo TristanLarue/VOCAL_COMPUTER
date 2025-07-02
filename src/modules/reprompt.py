@@ -4,7 +4,7 @@ import json
 import asyncio
 import base64
 from utils import log
-from API import send_openai_request
+from API import chatgpt_text_to_text
 from commands import execute_commands_from_response_block_sync
 
 def run(prompt=None, filenames=None, context=None, **kwargs):
@@ -82,7 +82,7 @@ def run(prompt=None, filenames=None, context=None, **kwargs):
             return
     # --- Call the API ---
     payload = {"model": "gpt-4.1", "messages": [{"role": "user", "content": user_content}]}
-    response = send_openai_request('chat/completions', payload)
+    response = chatgpt_text_to_text(**payload)
     # --- Process the response through commands.py ---
     content = None
     try:

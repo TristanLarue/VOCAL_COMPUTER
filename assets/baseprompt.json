@@ -34,5 +34,6 @@
   "memory": "",
   "context": "",
   "user_prompt": "",
-  "commands": {}
+  "commands": {},
+  "temp_folder": []
 }

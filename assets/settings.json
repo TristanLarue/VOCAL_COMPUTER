@@ -5,13 +5,18 @@
     "description": "Automatically end the conversation after a period of inactivity."
   },
   {
+    "setting-id": "silence-delay",
+    "value": 15,
+    "description": "Number of seconds of silence needed to automatically close the conversation when auto-conversation-end is enabled."
+  },
+  {
     "setting-id": "emotional-voice",
     "value": false,
     "description": "Enable emotional tone in the assistant's voice."
   },
   {
     "setting-id": "permanent-memory",
-    "value": false,
+    "value": true,
     "description": "Persist conversation memory between sessions."
   },
   {
@@ -26,7 +31,7 @@
   },
   {
     "setting-id": "voice-name",
-    "value": "nova",
-    "description": "The OpenAI TTS voice to use. Must be one of: 'alloy', 'echo', 'fable', 'onyx', 'nova', or 'shimmer'. Strictly use one of these names."
+    "value": "onyx",
+    "description": "The OpenAI TTS voice to use. Must be one of: 'alloy', 'echo', 'fable', 'onyx', 'nova', or 'shimmer'. Strictly use one of these names. Tristan likes echo or onyx."
   }
 ]

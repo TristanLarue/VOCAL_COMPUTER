@@ -19,6 +19,9 @@ def preload_libraries():
 def main():
     try:
         preload_libraries()
+        # Preload Whisper model for faster first transcription
+        from transcribe import preload_whisper
+        preload_whisper()
         # Start the async speech worker
         start_speech_worker()
         from triggers import setup_triggers, run_triggers, stop_triggers

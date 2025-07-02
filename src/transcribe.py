@@ -53,3 +53,13 @@ async def async_transcribe(audio_path):
     except Exception as e:
         log(f"Error in async_transcribe: {e}\n{traceback.format_exc()}", "ERROR")
         return ""
+
+def preload_whisper():
+    try:
+        model = load_whisper_model()
+        if model:
+            log("Whisper model preloaded and ready.", "SYSTEM")
+        else:
+            log("Whisper model failed to preload.", "ERROR")
+    except Exception as e:
+        log(f"Error preloading Whisper model: {e}", "ERROR")

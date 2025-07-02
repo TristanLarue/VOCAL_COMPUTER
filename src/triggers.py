@@ -9,7 +9,7 @@ import time
 import os
 import traceback
 from dotenv import load_dotenv
-from utils import log, get_settings
+from utils import log, get_settings, log_finetune_example
 from sounds import play_sound_effect, IS_ASSISTANT_SPEAKING, interrupt_speech
 import collections
 
@@ -19,7 +19,6 @@ PORCUPINE_ACCESS_KEY = os.getenv("PORCUPINE_ACCESS_KEY")
 WAKE_WORD = "computer"
 SILENCE_THRESHOLD = 250  # Lowered threshold for more sensitive speech detection
 SILENCE_CHUNKS = int(16000 / 1024 * 3.5)  # ~3.5 seconds of silence, increased from 2 seconds
-INACTIVITY_TIMEOUT = 15  # seconds
 FRAME_DURATION_MS = 30
 SAMPLE_RATE = 16000
 CHANNELS = 1
@@ -40,7 +39,7 @@ import asyncio
 
 # --- SETUP & TEARDOWN ---
 def setup_triggers(on_transcription):
-    global pa, stream, on_transcription_callback
+    global pa, stream, on_transcription_callback, IS_ASSISTANT_AWAKE
     import warnings
     warnings.filterwarnings("ignore", message="FP16 is not supported on CPU; using FP32 instead")
     try:
@@ -53,7 +52,9 @@ def setup_triggers(on_transcription):
             frames_per_buffer=512,
         )
         on_transcription_callback = on_transcription
+        IS_ASSISTANT_AWAKE = True  # Start in awake mode
         log("Triggers setup complete", "SYSTEM")
+        greet()
     except Exception as e:
         log(f"Error in setup_triggers: {e}\n{traceback.format_exc()}", "ERROR", script="TRIGGERS")
 
@@ -180,13 +181,13 @@ async def _awake_loop():
                 speech_detected = False
                 last_speech_time = time.time()
                 asyncio.create_task(_handle_speech_end(frames_to_process))
-            # Always count silence, but only trigger auto-end if setting is true
-            if (time.time() - last_speech_time) > INACTIVITY_TIMEOUT:
-                from utils import get_settings
-                auto_convo_end = get_settings().get('auto-conversation-end')
-                if auto_convo_end:
+            # Check for inactivity timeout, but only if auto-conversation-end is enabled
+            auto_convo_end = get_settings().get('auto-conversation-end', False)
+            if auto_convo_end:
+                silence_delay = get_settings().get('silence-delay', 15)  # Default to 15 seconds
+                if (time.time() - last_speech_time) > silence_delay:
                     play_sound_effect(os.path.join(os.path.dirname(__file__), '../assets/close.wav'))
-                    log("No activity detected. Returning to sleep mode.", "TRIGGERS")
+                    log(f"No activity detected for {silence_delay} seconds. Returning to sleep mode.", "TRIGGERS")
                     IS_ASSISTANT_AWAKE = False
                     break
             await asyncio.sleep(0.01)
@@ -216,7 +217,7 @@ async def _handle_speech_end(frames):
 
 async def prompt_manager(user_text):
     try:
-        from API import send_openai_request
+        from API import chatgpt_text_to_text
         import json, os
         # Load baseprompt, settings, commands, and memory
         with open(os.path.join(os.path.dirname(__file__), '../assets/baseprompt.json'), 'r', encoding='utf-8') as f:
@@ -231,6 +232,13 @@ async def prompt_manager(user_text):
         baseprompt['commands'] = commands
         baseprompt['memory'] = memory  # Load full memory.json as the memory key
         baseprompt['user_prompt'] = user_text
+        # Add temp_folder file list
+        temp_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../temp'))
+        try:
+            temp_files = [f for f in os.listdir(temp_dir) if os.path.isfile(os.path.join(temp_dir, f))]
+        except Exception:
+            temp_files = []
+        baseprompt['temp_folder'] = temp_files
         # Remove any context logic here; context is only for reprompt
         prompt = json.dumps(baseprompt, ensure_ascii=False)
         payload = {
@@ -238,7 +246,7 @@ async def prompt_manager(user_text):
             "messages": [{"role": "user", "content": prompt}]
         }
         log(f"Sending user prompt to ChatGPT. Awaiting response...", "GPT")
-        response = send_openai_request('chat/completions', payload)
+        response = chatgpt_text_to_text(prompt=prompt)
         content = None
         try:
             if response and 'choices' in response and response['choices']:
@@ -246,6 +254,8 @@ async def prompt_manager(user_text):
         except Exception as e:
             log(f"Malformed API response: {response}\n{e}", "ERROR")
         if content:
+            # Log user/assistant pair for fine-tuning
+            log_finetune_example(user_text, content)
             # Summarize memory immediately (async, non-blocking)
             try:
                 import asyncio
@@ -291,9 +301,40 @@ def _save_frames_to_wav(frames):
 
 
 async def _inactivity_timer():
-    await asyncio.sleep(INACTIVITY_TIMEOUT)
+    """Timer function that waits for the configured silence delay"""
+    silence_delay = get_settings().get('silence-delay', 15)  # Default to 15 seconds
+    await asyncio.sleep(silence_delay)
 
 
 def force_sleep_mode():
     global IS_ASSISTANT_AWAKE
     IS_ASSISTANT_AWAKE = False
+
+
+def greet():
+    from API import send_openai_request
+    from modules.speak import run as speak_run
+    import datetime
+    now = datetime.datetime.now()
+    hour = now.hour
+    if hour < 12:
+        time_of_day = "morning"
+    elif hour < 18:
+        time_of_day = "afternoon"
+    else:
+        time_of_day = "evening"
+    prompt = f"Greet me for the {time_of_day} and tell me that all systems are operational. Be friendly and concise."
+    payload = {
+        "model": "gpt-4.1",
+        "messages": [{"role": "user", "content": prompt}]
+    }
+    response = send_openai_request('chat/completions', payload)
+    greeting = f"Good {time_of_day}, Tristan. All systems are operational."
+    try:
+        if response and 'choices' in response['choices']:
+            ai_greeting = response['choices'][0]['message']['content'].strip()
+            if ai_greeting:
+                greeting = ai_greeting
+    except Exception:
+        pass
+    speak_run(text=greeting)

@@ -1,6 +1,6 @@
 import os
 import json
-from API import send_openai_request
+from API import chatgpt_text_to_text
 
 memory_prompt = '''
 You are a memory assistant for an AI voice assistant named "Computer". Your job is to maintain a short, compressed memory of conversations between Computer and Tristan.
@@ -45,7 +45,7 @@ def summarize_memory(memory, last_user_prompt, last_ai_answer):
         "model": "gpt-4.1",
         "messages": messages
     }
-    response = send_openai_request('chat/completions', payload)
+    response = chatgpt_text_to_text(**payload)
     if response and 'choices' in response and response['choices']:
         summary = response['choices'][0]['message']['content'].strip()
         return {

@@ -22,13 +22,6 @@
       "usage": "/exit()"
     },
     {
-      "name": "wait",
-      "description": "Wait for a specified number of seconds before continuing.",
-      "module": "wait.py",
-      "parameters": ["seconds:int"],
-      "usage": "/wait(seconds={3})"
-    },
-    {
       "name": "settings",
       "description": "Modifies an existing setting in settings.json. Only existing settings can be changed; new settings cannot be added.",
       "module": "settings.py",
@@ -63,6 +56,31 @@
       "module": "browse.py",
       "parameters": ["url:string (the full URL to open)"],
       "usage": "/browse(url={https://www.google.com})"
+    },
+    {
+      "name": "browsing",
+      "description": "Advanced browser automation using Playwright. Supports multiple actions like navigate, click, type, submit, screenshot, and more. Maintains a persistent browser session until closed.",
+      "module": "browsing.py",
+      "parameters": [
+        "action:string (navigate, click, type, submit, screenshot, get_text, get_title, close)",
+        "url:string (required for navigate action)",
+        "selector:string (CSS selector for click, type, submit, get_text actions)",
+        "text:string (text to type, required for type action)",
+        "headless:bool (true/false, default true)",
+        "filename:string (for screenshot action)"
+      ],
+      "usage": "/browsing(action={navigate},url={https://www.google.com})\n/browsing(action={type},selector={input[name='q']},text={search query})\n/browsing(action={click},selector={button[type='submit']})\n/browsing(action={screenshot},filename={page.png})\n/browsing(action={close})"
+    },
+    {
+      "name": "spotify",
+      "description": "Control Spotify playback. Play, pause, skip, resume, set volume, or play a specific song, artist, or playlist.",
+      "module": "spotify.py",
+      "parameters": [
+        "action:string (play, pause, resume, skip, previous, set_volume, play_song, play_artist, play_playlist)",
+        "query:string (song/artist/playlist name, required for play_song, play_artist, play_playlist)",
+        "volume:int (0-100, required for set_volume)"
+      ],
+      "usage": "/spotify(action={play})\n/spotify(action={pause})\n/spotify(action={set_volume},volume={50})\n/spotify(action={play_song},query={Bohemian Rhapsody})\n/spotify(action={play_artist},query={Queen})\n/spotify(action={play_playlist},query={Top Hits})"
     }
   ]
 }
