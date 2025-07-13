@@ -29,7 +29,6 @@ VOCAL_COMPUTER/
 │   ├── sounds.py     # Sound system (effects, speech, queue, interruption)
 │   ├── memory.py     # Conversation memory summarization
 │   ├── commands.py   # Command parsing and module dispatch
-│   ├── API.py        # OpenAI API and other integrations
 │   ├── utils.py      # Logging, settings, and helpers
 │   └── modules/
 │       ├── speak.py      # Text-to-speech and speech queueing

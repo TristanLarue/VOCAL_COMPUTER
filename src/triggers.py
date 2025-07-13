@@ -9,11 +9,16 @@ import time
 import os
 import traceback
 from dotenv import load_dotenv
-from utils import log, get_settings, log_finetune_example
+from utils import log, get_settings, log_finetune_example, log_cost_summary, log_command_execution
 from sounds import play_sound_effect, IS_ASSISTANT_SPEAKING, interrupt_speech
 import collections
 
 load_dotenv()
+
+# Global cost tracking
+TOTAL_COST_CENTS = 0.0
+TOTAL_TOKEN_COST_CENTS = 0.0
+TOTAL_TTS_COST_CENTS = 0.0
 
 PORCUPINE_ACCESS_KEY = os.getenv("PORCUPINE_ACCESS_KEY")
 WAKE_WORD = "computer"
@@ -119,13 +124,13 @@ async def _sleep_mode():
             access_key=PORCUPINE_ACCESS_KEY,
             keywords=[WAKE_WORD],
         )
-        log("Listening for wake word 'COMPUTER'. Assistant is in sleep mode.", "TRIGGERS")
+        log("Listening for wake word 'COMPUTER'. Assistant is in sleep mode.", "TRIGGER")
         while True:
             pcm = stream.read(porcupine.frame_length, exception_on_overflow=False)
             keyword_index = porcupine.process(np.frombuffer(pcm, dtype=np.int16))
             if keyword_index >= 0:
                 play_sound_effect(os.path.join(os.path.dirname(__file__), '../assets/open.wav'))
-                log(f"Wake word '{WAKE_WORD}' detected. Switching to awake mode.", "TRIGGERS")
+                log(f"Wake word '{WAKE_WORD}' detected. Switching to awake mode.", "TRIGGER")
                 porcupine.delete()
                 return "awake"
     except Exception as e:
@@ -161,7 +166,7 @@ async def _awake_loop():
                     log(f"Ongoing AI speech interrupted by user input (avg RMS {avg_rms:.2f} > threshold {SILENCE_THRESHOLD})", "TRIGGERS")
                 if not speech_detected:
                     frames = list(buffer_frames)
-                    log("User speech detected. Listening for command.", "TRIGGERS")
+                    log("User speech detected. Listening for command.", "TRIGGER")
                 frames.append(pcm)
                 speech_detected = True
                 last_speech_time = now
@@ -173,7 +178,7 @@ async def _awake_loop():
                 else:
                     buffer_frames.append(pcm)
             if speech_detected and silence_chunks > SILENCE_CHUNKS:
-                log("End of user speech detected. Preparing for transcription.", "TRIGGERS")
+                log("End of user speech detected. Preparing for transcription.", "TRIGGER")
                 frames_to_process = frames.copy()
                 frames = []
                 buffer_frames.clear()
@@ -203,7 +208,7 @@ async def _handle_speech_end(frames):
         audio_path = _save_frames_to_wav(frames)
         from transcribe import async_transcribe
         text = await async_transcribe(audio_path)
-        log(f"Transcription complete. Result: '{text}'", "WHISPER")
+        log(f"Transcription complete. Result: '{text}'", "TRANSCRIPTION")
         if not text or not text.strip() or len(text.strip()) < 2 or text.strip().lower() in ["uh", "um", "", "..."]:
             return
         if on_transcription_callback:
@@ -217,8 +222,38 @@ async def _handle_speech_end(frames):
 
 async def prompt_manager(user_text):
     try:
-        from API import chatgpt_text_to_text
+        import requests
         import json, os
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        def send_openai_request(endpoint, payload, headers=None, stream=False):
+            """Send request to OpenAI API"""
+            try:
+                url = f"https://api.openai.com/v1/{endpoint}"
+                if headers is None:
+                    headers = {"Authorization": f"Bearer {os.getenv('OPENAI_API_KEY', '')}"}
+                response = requests.post(url, headers={**headers, "Content-Type": "application/json"}, json=payload, stream=stream)
+                response.raise_for_status()
+                if stream:
+                    return response
+                return response.json()
+            except Exception as e:
+                log(f"OpenAI API request failed: {e}", "ERROR", script="triggers.py")
+                return None
+
+        def chatgpt_text_to_text(*, prompt=None, **kwargs):
+            """Send text to ChatGPT and get response"""
+            if prompt is not None:
+                payload = {
+                    "model": kwargs.get("model", "gpt-4.1"),
+                    "messages": [{"role": "user", "content": prompt}]
+                }
+                payload.update({k: v for k, v in kwargs.items() if k not in ("model",)})
+            else:
+                payload = kwargs
+            return send_openai_request('chat/completions', payload)
+        
         # Load baseprompt, settings, commands, and memory
         with open(os.path.join(os.path.dirname(__file__), '../assets/baseprompt.json'), 'r', encoding='utf-8') as f:
             baseprompt = json.load(f)
@@ -232,6 +267,8 @@ async def prompt_manager(user_text):
         baseprompt['commands'] = commands
         baseprompt['memory'] = memory  # Load full memory.json as the memory key
         baseprompt['user_prompt'] = user_text
+        import time
+        baseprompt['unix_time'] = int(time.time())
         # Add temp_folder file list
         temp_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../temp'))
         try:
@@ -241,18 +278,58 @@ async def prompt_manager(user_text):
         baseprompt['temp_folder'] = temp_files
         # Remove any context logic here; context is only for reprompt
         prompt = json.dumps(baseprompt, ensure_ascii=False)
+        
+        # Calculate token costs before sending request
+        try:
+            import tiktoken
+            encoding = tiktoken.encoding_for_model("gpt-4")
+            input_tokens = len(encoding.encode(prompt))
+            
+            # Cost calculation (as of 2024/2025 pricing) - converted to cents
+            input_cost_per_million = 200.0  # 200¢ per million input tokens ($2.00)
+            output_cost_per_million = 800.0  # 800¢ per million output tokens ($8.00)
+            
+            input_cost_cents = (input_tokens / 1_000_000) * input_cost_per_million
+            
+            log(f"API request: {input_tokens:,} input tokens ({input_cost_cents:.4f}¢)", "COST")
+            
+        except Exception as e:
+            log(f"Token estimation failed: {e}", "ERROR", script="triggers.py")
+            input_tokens = 0
+            input_cost_cents = 0.0
+        
         payload = {
             "model": "gpt-4.1",
             "messages": [{"role": "user", "content": prompt}]
         }
-        log(f"Sending user prompt to ChatGPT. Awaiting response...", "GPT")
+        log("Sending request to OpenAI API", "API")
         response = chatgpt_text_to_text(prompt=prompt)
         content = None
         try:
             if response and 'choices' in response and response['choices']:
                 content = response['choices'][0]['message']['content']
+                
+                # Calculate output token cost and update global tracking
+                global TOTAL_COST_CENTS, TOTAL_TOKEN_COST_CENTS
+                try:
+                    output_tokens = len(encoding.encode(content))
+                    output_cost_cents = (output_tokens / 1_000_000) * output_cost_per_million
+                    total_request_cost = input_cost_cents + output_cost_cents
+                    
+                    log(f"API response: {output_tokens:,} output tokens ({output_cost_cents:.4f}¢)", "COST")
+                    
+                    # Update global trackers
+                    TOTAL_TOKEN_COST_CENTS += total_request_cost
+                    TOTAL_COST_CENTS = TOTAL_TOKEN_COST_CENTS + TOTAL_TTS_COST_CENTS
+                    
+                    # Log cost summary
+                    log_cost_summary(TOTAL_COST_CENTS, TOTAL_TOKEN_COST_CENTS, TOTAL_TTS_COST_CENTS)
+                    
+                except Exception as e:
+                    log(f"Output token calculation failed: {e}", "ERROR", script="triggers.py")
+                    
         except Exception as e:
-            log(f"Malformed API response: {response}\n{e}", "ERROR")
+            log(f"Malformed API response: {response}", "ERROR", script="triggers.py")
         if content:
             # Log user/assistant pair for fine-tuning
             log_finetune_example(user_text, content)
@@ -270,17 +347,14 @@ async def prompt_manager(user_text):
                         with open(mem_path, 'w', encoding='utf-8') as f:
                             json.dump(summary_obj, f, indent=2, ensure_ascii=False)
                 asyncio.create_task(summarize_and_save())
-                log("Memory summarization task started.", "MEMORY")
+                log("Memory summarization started", "CONTEXT")
             except Exception as e:
-                log(f"Error starting memory summarization: {e}\n{traceback.format_exc()}", "ERROR")
-            from commands import execute_commands_from_response_block_sync
-            for line in content.split('\n'):
-                if line.strip().startswith('/'):
-                    log(f"Executing command: {line.strip()}", "COMMAND")
-            await execute_commands_from_response_block_sync(content)
-            log("All commands executed. AI response complete.", "COMMAND")
+                log(f"Error starting memory summarization: {e}", "ERROR", script="triggers.py")
+            # Use new JSON command processing
+            from commands import execute_commands_from_json_response_async
+            await execute_commands_from_json_response_async(content)
     except Exception as e:
-        log(f"Error in prompt_manager: {e}\n{traceback.format_exc()}", "ERROR")
+        log(f"Error in prompt_manager: {e}", "ERROR", script="triggers.py")
 
 
 def _save_frames_to_wav(frames):
@@ -296,7 +370,7 @@ def _save_frames_to_wav(frames):
         wf.close()
         return temp_wav.name
     except Exception as e:
-        log(f"Error saving frames to wav: {e}\n{traceback.format_exc()}", "ERROR", script="TRIGGERS")
+        log(f"Error saving frames to wav: {e}", "ERROR", script="triggers.py")
         return None
 
 
@@ -312,7 +386,6 @@ def force_sleep_mode():
 
 
 def greet():
-    from API import send_openai_request
     from modules.speak import run as speak_run
     import datetime
     now = datetime.datetime.now()
@@ -323,18 +396,6 @@ def greet():
         time_of_day = "afternoon"
     else:
         time_of_day = "evening"
-    prompt = f"Greet me for the {time_of_day} and tell me that all systems are operational. Be friendly and concise."
-    payload = {
-        "model": "gpt-4.1",
-        "messages": [{"role": "user", "content": prompt}]
-    }
-    response = send_openai_request('chat/completions', payload)
+    
     greeting = f"Good {time_of_day}, Tristan. All systems are operational."
-    try:
-        if response and 'choices' in response['choices']:
-            ai_greeting = response['choices'][0]['message']['content'].strip()
-            if ai_greeting:
-                greeting = ai_greeting
-    except Exception:
-        pass
     speak_run(text=greeting)

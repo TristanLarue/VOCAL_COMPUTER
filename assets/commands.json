@@ -1,86 +1,135 @@
 {
+  "IMPORTANT_NOTE": "CRITICAL: When using modules that download/capture information (agenda, news, weather, screenshot), you MUST specify a filename and then call reprompt immediately after to read and process that information. These modules save data to temp files with your specified name. Pattern: 1) Call agenda/news/weather/screenshot with filename parameter, 2) Call reprompt with the exact filename you specified, 3) Call speak to respond with specific details. This enables command queueing since you control the filenames. Without reprompt, the AI cannot access downloaded content and will only give generic responses. NOTE: 'agenda' IS the calendar system - there is no separate calendar module.",
   "commands": [
     {
-      "name": "screenshot",
-      "description": "Take a screenshot of a single specified monitor and save it to the /temp directory.",
-      "module": "screenshot.py",
-      "parameters": ["monitorId:int (0=main/right/first, 1=secondary/left/second)", "filename:string"],
-      "usage": "/screenshot(monitorId={0},filename={mainshot.png})"
-    },
-    {
       "name": "speak",
-      "description": "Speak a given text using TTS. Command format must be '/speak()' with no spaces after the slash.",
+      "description": "Speak text using TTS. REQUIRED for all communication.",
       "module": "speak.py",
-      "parameters": ["text:string"],
-      "usage": "/speak(text={Hello, I am your assistant!})"
+      "args": { "text": "string (required)" },
+      "usage": "{ \"module\": \"speak\", \"args\": { \"text\": \"Hello Tristan!\" } }"
     },
     {
-      "name": "exit",
-      "description": "End the session and force the assistant to return to sleep mode (wake-word detection).",
-      "module": "exit.py",
-      "parameters": [],
-      "usage": "/exit()"
-    },
-    {
-      "name": "settings",
-      "description": "Modifies an existing setting in settings.json. Only existing settings can be changed; new settings cannot be added.",
-      "module": "settings.py",
-      "parameters": ["key:string", "value:string|int|bool"],
-      "usage": "/settings(key={voice-speed},value={1.2})"
+      "name": "screenshot", 
+      "description": "Capture monitor screenshot to /temp. ALWAYS use reprompt after taking screenshot to analyze the captured image. Saves to: specified filename in temp folder",
+      "module": "screenshot.py",
+      "args": { "monitorId": "int (0=main, 1=secondary)", "filename": "string (required)" },
+      "usage": "{ \"module\": \"screenshot\", \"args\": { \"monitorId\": 0, \"filename\": \"shot.png\" } }"
     },
     {
       "name": "clipboard",
-      "description": "Get or set the system clipboard. Use actionType 'get' to save clipboard to a file in /temp, or 'set' to update clipboard with text.",
-      "module": "clipboard.py",
-      "parameters": [
-        "actionType:string (get or set)",
-        "filename:string (required for get)",
-        "text:string (required for set)"
-      ],
-      "usage": "/clipboard(actionType={get},filename={clipboard.txt})\n/clipboard(actionType={set},text={Hello world!})"
-    },
-    {
-      "name": "reprompt",
-      "description": "Send a new prompt to the AI, optionally including one or more files as context. Enables multi-step reasoning and local file analysis.\n\nIMPORTANT: Use the reprompt command EVERY TIME you need the AI to access, analyze, or reason about data from your local machine. This includes reading files, images, screenshots, PDFs, or any other local resource. The reprompt command is the ONLY way to make the AI aware of your local data and environment.\n\nThe context parameter is CRUCIAL: it must always be filled with all relevant information, state, or results from previous steps. This ensures the AI understands the full prompt, the current workflow, and the task at hand. Without a complete context, the AI may not be able to reason correctly or continue multi-step tasks.\n\nThe reprompt command supports multi-step workflows: you can chain reprompt calls to iteratively provide new data, context, or results from previous steps. Always specify the files and any additional context needed for the AI to perform the next reasoning step.\n\nParameters:\n- prompt: The new instruction or question for the AI.\n- filenames: One or more filenames (comma, semicolon, or pipe separated) to attach as context.\n- context: (REQUIRED) All relevant context, state, or results from previous steps to inform the AI's reasoning.\n\nExample use cases:\n- /reprompt(prompt={What is in this file?},filenames={screenshot.png},context={User is reviewing screenshots for errors.})\n- /reprompt(prompt={Summarize all these files},filenames={file1.txt,file2.txt},context={These files are meeting notes from last week.})\n- /reprompt(prompt={Given the extracted data, what should I do next?},context={Data extracted: ...},filenames={data.csv})\n\nBest Practice: Always fill the context parameter with as much relevant information as possible. This ensures robust, context-aware, and secure AI workflows.",
-      "module": "reprompt.py",
-      "parameters": [
-        "prompt:string (the new prompt for the AI)",
-        "filenames:string|list (one or more filenames, separated by comma, semicolon, or pipe)",
-        "context:string (REQUIRED! all relevant context or state for the AI to understand the current tought process)"
-      ],
-      "usage": "/reprompt(prompt={What is in this file?},filenames={screenshot.png},context={User is reviewing screenshots for errors.})\n/reprompt(prompt={Summarize all these files},filenames={file1.txt,file2.txt},context={These files are meeting notes from last week.})"
+      "description": "Get/set system clipboard.",
+      "module": "clipboard.py", 
+      "args": { "actionType": "string (get|set)", "filename": "string (for get)", "text": "string (for set)" },
+      "usage": "{ \"module\": \"clipboard\", \"args\": { \"actionType\": \"get\", \"filename\": \"clip.txt\" } }"
     },
     {
       "name": "browse",
-      "description": "Open a web page in the default browser using the specified URL. Use this to open Google or any other website for the user.",
+      "description": "Open URL in default browser.",
       "module": "browse.py",
-      "parameters": ["url:string (the full URL to open)"],
-      "usage": "/browse(url={https://www.google.com})"
+      "args": { "url": "string (required)" },
+      "usage": "{ \"module\": \"browse\", \"args\": { \"url\": \"https://google.com\" } }"
     },
     {
       "name": "browsing",
-      "description": "Advanced browser automation using Playwright. Supports multiple actions like navigate, click, type, submit, screenshot, and more. Maintains a persistent browser session until closed.",
+      "description": "Advanced browser automation with Playwright.",
       "module": "browsing.py",
-      "parameters": [
-        "action:string (navigate, click, type, submit, screenshot, get_text, get_title, close)",
-        "url:string (required for navigate action)",
-        "selector:string (CSS selector for click, type, submit, get_text actions)",
-        "text:string (text to type, required for type action)",
-        "headless:bool (true/false, default true)",
-        "filename:string (for screenshot action)"
-      ],
-      "usage": "/browsing(action={navigate},url={https://www.google.com})\n/browsing(action={type},selector={input[name='q']},text={search query})\n/browsing(action={click},selector={button[type='submit']})\n/browsing(action={screenshot},filename={page.png})\n/browsing(action={close})"
+      "args": { "action": "string (navigate|click|type|submit|screenshot|get_text|get_title|close)", "url": "string (for navigate)", "selector": "string (CSS selector)", "text": "string (for type)", "headless": "bool (default true)", "filename": "string (for screenshot)" },
+      "usage": "{ \"module\": \"browsing\", \"args\": { \"action\": \"navigate\", \"url\": \"https://google.com\" } }"
     },
     {
       "name": "spotify",
-      "description": "Control Spotify playback. Play, pause, skip, resume, set volume, or play a specific song, artist, or playlist.",
+      "description": "Simple Spotify control with minimal arguments.",
       "module": "spotify.py",
-      "parameters": [
-        "action:string (play, pause, resume, skip, previous, set_volume, play_song, play_artist, play_playlist)",
-        "query:string (song/artist/playlist name, required for play_song, play_artist, play_playlist)",
-        "volume:int (0-100, required for set_volume)"
-      ],
-      "usage": "/spotify(action={play})\n/spotify(action={pause})\n/spotify(action={set_volume},volume={50})\n/spotify(action={play_song},query={Bohemian Rhapsody})\n/spotify(action={play_artist},query={Queen})\n/spotify(action={play_playlist},query={Top Hits})"
+      "args": { "action": "string (play|pause|resume|next|back|volume)", "search": "string (song/artist for play)", "volume": "int 0-100 (for volume)", "device": "string (computer|phone - optional)" },
+      "usage": "{ \"module\": \"spotify\", \"args\": { \"action\": \"play\", \"search\": \"bohemian rhapsody queen\", \"device\": \"phone\" } }"
+    },
+    {
+      "name": "agenda",
+      "description": "YOUR CALENDAR - Google Calendar management with natural language support. This IS your calendar system. ALWAYS use reprompt after downloading/listing events to read the actual data.",
+      "module": "agenda.py",
+      "args": { 
+        "action": "string (list|today|week|month|add|create|modify|update|edit|delete|remove|move|search|find|clear)", 
+        "filename": "string (required for list/search actions - file to save calendar data)",
+        "title": "string (required for add - event title/summary)", 
+        "date": "string (YYYY-MM-DD or natural like 'today', 'tomorrow', 'next friday')", 
+        "start_time": "string (HH:MM or HH:MM AM/PM - event start time)",
+        "end_time": "string (HH:MM or HH:MM AM/PM - event end time, alternative to duration)",
+        "time": "string (alias for start_time for backward compatibility)", 
+        "end_date": "string (for multi-day events - end date)",
+        "duration": "string (e.g. '2 hours', '30 minutes', '1 day' - alternative to end_time)", 
+        "all_day": "boolean (true for all-day events, default false)",
+        "description": "string (event description/notes)", 
+        "location": "string (event location/address)", 
+        "color": "string (blue|green|purple|red|yellow|orange|turquoise|gray|bold_blue|bold_green|bold_red)",
+        "visibility": "string (public|private|default - event visibility setting)",
+        "recurrence": "string (daily|weekly|monthly|yearly|weekdays|weekends - recurring pattern)",
+        "reminders": "string (e.g. '15 minutes', '1 hour', '1 day' or comma-separated list)",
+        "attendees": "string (comma-separated email addresses or names)",
+        "event_id": "string (for modify/delete by ID)", 
+        "query": "string (for search/find)", 
+        "new_date": "string (for modify/move)", 
+        "new_start_time": "string (for modify/move)", 
+        "new_end_time": "string (for modify/move)",
+        "new_duration": "string (for modify - change event duration)",
+        "new_title": "string (for modify)"
+      },
+      "usage": "Examples: \n1) List today: { \"module\": \"agenda\", \"args\": { \"action\": \"today\", \"filename\": \"today_events.txt\" } }\n2) Add simple event: { \"module\": \"agenda\", \"args\": { \"action\": \"add\", \"title\": \"Meeting\", \"date\": \"tomorrow\", \"start_time\": \"2:00 PM\", \"duration\": \"1 hour\" } }\n3) Add all-day event: { \"module\": \"agenda\", \"args\": { \"action\": \"add\", \"title\": \"Vacation\", \"date\": \"2024-06-15\", \"all_day\": true, \"end_date\": \"2024-06-20\" } }\n4) Add detailed event: { \"module\": \"agenda\", \"args\": { \"action\": \"add\", \"title\": \"Team Meeting\", \"date\": \"today\", \"start_time\": \"9:00 AM\", \"end_time\": \"10:30 AM\", \"location\": \"Conference Room A\", \"description\": \"Weekly team sync\", \"color\": \"blue\", \"attendees\": \"john@example.com,jane@example.com\", \"reminders\": \"15 minutes,1 hour\" } }\n5) Add recurring event: { \"module\": \"agenda\", \"args\": { \"action\": \"add\", \"title\": \"Daily Standup\", \"date\": \"today\", \"start_time\": \"9:00 AM\", \"duration\": \"30 minutes\", \"recurrence\": \"weekdays\" } }"
+    },
+    {
+      "name": "weather",
+      "description": "Weather info from free APIs with auto-location. ALWAYS use reprompt after getting weather to read the actual forecast data.",
+      "module": "weather.py",
+      "args": { "action": "string (current|forecast|today)", "location": "string (optional)", "filename": "string (required - file to save weather data)" },
+      "usage": "{ \"module\": \"weather\", \"args\": { \"action\": \"current\", \"filename\": \"current_weather.json\" } }"
+    },
+    {
+      "name": "news", 
+      "description": "News from BBC/Reddit feeds. ALWAYS use reprompt after getting news to read the actual articles/headlines.",
+      "module": "news.py",
+      "args": { "action": "string (headlines|tech|business|science|world)", "count": "int (default 10, max 50)", "filename": "string (required - file to save news data)" },
+      "usage": "{ \"module\": \"news\", \"args\": { \"action\": \"headlines\", \"filename\": \"top_headlines.json\" } }"
+    },
+    {
+      "name": "settings",
+      "description": "Modify existing settings only.",
+      "module": "settings.py",
+      "args": { "key": "string (setting-id)", "value": "string|int|bool" },
+      "usage": "{ \"module\": \"settings\", \"args\": { \"key\": \"voice-speed\", \"value\": 1.2 } }"
+    },
+    {
+      "name": "reprompt",
+      "description": "Send new prompt to AI with file context. REQUIRED for analyzing local files/screenshots and processing downloaded data from agenda/news/weather modules.",
+      "module": "reprompt.py", 
+      "args": { "prompt": "string (required)", "filenames": "string (comma-separated)", "context": "string (REQUIRED - current state/workflow)" },
+      "usage": "{ \"module\": \"reprompt\", \"args\": { \"prompt\": \"What's the weather today?\", \"filenames\": \"current_weather.json\", \"context\": \"User asked about weather after downloading current conditions\" } }"
+    },
+    {
+      "name": "todo",
+      "description": "Add item to TODO list for tracking AI capabilities and features to implement. Simply provide text to add to TODO.txt in assets folder.",
+      "module": "todo.py",
+      "args": {
+        "text": "string (required - the TODO item text)"
+      },
+      "usage": "{ \"module\": \"todo\", \"args\": { \"text\": \"Implement voice recognition improvements\" } }"
+    },
+    {
+      "name": "exit",
+      "description": "End session, return to wake-word detection.",
+      "module": "exit.py",
+      "usage": "{ \"module\": \"exit\" }"
     }
-  ]
+  ],
+  "WORKFLOW_EXAMPLES": {
+    "weather_workflow": "1) { \"module\": \"weather\", \"args\": { \"action\": \"current\", \"filename\": \"my_weather.json\" } } 2) { \"module\": \"reprompt\", \"args\": { \"prompt\": \"What's the weather?\", \"filenames\": \"my_weather.json\", \"context\": \"User asked about current weather\" } } 3) { \"module\": \"speak\", \"args\": { \"text\": \"[specific weather details]\" } }",
+    "calendar_workflow": "1) { \"module\": \"agenda\", \"args\": { \"action\": \"today\", \"filename\": \"today_schedule.txt\" } } 2) { \"module\": \"reprompt\", \"args\": { \"prompt\": \"What's on my calendar today?\", \"filenames\": \"today_schedule.txt\", \"context\": \"User asked about today's schedule\" } } 3) { \"module\": \"speak\", \"args\": { \"text\": \"[specific calendar events]\" } }",
+    "add_simple_event": "Add basic event: { \"module\": \"agenda\", \"args\": { \"action\": \"add\", \"title\": \"Doctor Appointment\", \"date\": \"tomorrow\", \"start_time\": \"2:00 PM\", \"duration\": \"1 hour\", \"location\": \"Medical Center\" } }",
+    "add_detailed_event": "Add event with all features: { \"module\": \"agenda\", \"args\": { \"action\": \"add\", \"title\": \"Team Meeting\", \"date\": \"2024-06-15\", \"start_time\": \"9:00 AM\", \"end_time\": \"10:30 AM\", \"location\": \"Conference Room A\", \"description\": \"Weekly team sync and project updates\", \"color\": \"blue\", \"attendees\": \"john@company.com,jane@company.com\", \"reminders\": \"15 minutes,1 hour\", \"visibility\": \"private\" } }",
+    "add_allday_event": "Add all-day event: { \"module\": \"agenda\", \"args\": { \"action\": \"add\", \"title\": \"Company Holiday\", \"date\": \"2024-07-04\", \"all_day\": true, \"color\": \"red\", \"description\": \"Independence Day - office closed\" } }",
+    "add_recurring_event": "Add recurring event: { \"module\": \"agenda\", \"args\": { \"action\": \"add\", \"title\": \"Daily Standup\", \"date\": \"today\", \"start_time\": \"9:00 AM\", \"duration\": \"15 minutes\", \"recurrence\": \"weekdays\", \"location\": \"Zoom\", \"color\": \"green\" } }",
+    "search_events": "Search and analyze events: 1) { \"module\": \"agenda\", \"args\": { \"action\": \"search\", \"query\": \"meeting\", \"filename\": \"meeting_events.txt\" } } 2) { \"module\": \"reprompt\", \"args\": { \"prompt\": \"What meetings do I have coming up?\", \"filenames\": \"meeting_events.txt\", \"context\": \"User searched for meetings\" } } 3) { \"module\": \"speak\", \"args\": { \"text\": \"[specific meeting details]\" } }",
+    "add_todo_item": "Add TODO item: { \"module\": \"todo\", \"args\": { \"text\": \"Implement better natural language processing for calendar events\" } }",
+    "news_workflow": "1) { \"module\": \"news\", \"args\": { \"action\": \"headlines\", \"filename\": \"latest_news.json\" } } 2) { \"module\": \"reprompt\", \"args\": { \"prompt\": \"What are the top news headlines?\", \"filenames\": \"latest_news.json\", \"context\": \"User asked for news headlines\" } } 3) { \"module\": \"speak\", \"args\": { \"text\": \"[specific news summaries]\" } }",
+    "screenshot_workflow": "1) { \"module\": \"screenshot\", \"args\": { \"monitorId\": 0, \"filename\": \"desktop.png\" } } 2) { \"module\": \"reprompt\", \"args\": { \"prompt\": \"What's on my screen?\", \"filenames\": \"desktop.png\", \"context\": \"User took screenshot for analysis\" } } 3) { \"module\": \"speak\", \"args\": { \"text\": \"[specific screen description]\" } }",
+    "command_queueing_example": "Queue multiple commands in one response: 1) { \"module\": \"weather\", \"args\": { \"action\": \"current\", \"filename\": \"weather_now.json\" } } 2) { \"module\": \"agenda\", \"args\": { \"action\": \"today\", \"filename\": \"schedule_today.txt\" } } 3) { \"module\": \"reprompt\", \"args\": { \"prompt\": \"Give me a summary of today's weather and schedule\", \"filenames\": \"weather_now.json,schedule_today.txt\", \"context\": \"User wants weather and schedule summary\" } } 4) { \"module\": \"speak\", \"args\": { \"text\": \"[combined weather and schedule summary]\" } }"
+  }
 }

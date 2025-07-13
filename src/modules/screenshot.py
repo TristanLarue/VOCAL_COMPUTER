@@ -40,7 +40,6 @@ def run(monitorId=None, filename=None, **kwargs):
         screenshot = sct.grab(monitor)
         img = Image.frombytes("RGB", screenshot.size, screenshot.rgb)
         img.save(full_path)
-        log(f"[screenshot.py] Screenshot of monitor {monitor_id} saved to {full_path}", level="INFO", script=script_name)
         return {
             'monitorId': monitor_id,
             'filename': full_path

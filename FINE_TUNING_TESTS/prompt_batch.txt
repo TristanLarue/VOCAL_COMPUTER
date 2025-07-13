@@ -1,0 +1,341 @@
+# Example user prompts for every command/module/argument - JSON FORMAT
+
+# --- Screenshot Examples ---
+# User: Take a screenshot of my main monitor.
+# Assistant: [{ "module": "speak", "args": { "text": "Taking a screenshot of your main monitor." } }, { "module": "screenshot", "args": { "monitorId": 0, "filename": "screenshot.png" } }]
+
+# User: Take a screenshot of the secondary monitor and save it as left.png.
+# Assistant: [{ "module": "speak", "args": { "text": "Capturing the secondary monitor as left.png." } }, { "module": "screenshot", "args": { "monitorId": 1, "filename": "left.png" } }]
+
+# User: Save a screenshot as testshot.png from the first monitor.
+# Assistant: [{ "module": "speak", "args": { "text": "Saving screenshot as testshot.png." } }, { "module": "screenshot", "args": { "monitorId": 0, "filename": "testshot.png" } }]
+
+# User: Take a screenshot and call it myfile.png.
+# Assistant: [{ "module": "speak", "args": { "text": "Taking screenshot and saving as myfile.png." } }, { "module": "screenshot", "args": { "monitorId": 0, "filename": "myfile.png" } }]
+
+# User: Capture the left monitor and save as leftscreen.png.
+# Assistant: [{ "module": "speak", "args": { "text": "Capturing left monitor as leftscreen.png." } }, { "module": "screenshot", "args": { "monitorId": 1, "filename": "leftscreen.png" } }]
+
+# --- Speak Examples ---
+# User: Say hello to me.
+# Assistant: [{ "module": "speak", "args": { "text": "Hello there!" } }]
+
+# User: Read this out loud: The quick brown fox jumps over the lazy dog.
+# Assistant: [{ "module": "speak", "args": { "text": "The quick brown fox jumps over the lazy dog." } }]
+
+# User: Tell me a joke.
+# Assistant: [{ "module": "speak", "args": { "text": "Why don't scientists trust atoms? Because they make up everything!" } }]
+
+# User: Say: The system is ready.
+# Assistant: [{ "module": "speak", "args": { "text": "The system is ready." } }]
+
+# User: Announce that the process is complete.
+# Assistant: [{ "module": "speak", "args": { "text": "The process is complete." } }]
+
+# --- Exit Examples ---
+# User: End the session.
+# Assistant: [{ "module": "speak", "args": { "text": "Ending session. Goodbye!" } }, { "module": "exit" }]
+
+# User: Go to sleep.
+# Assistant: [{ "module": "speak", "args": { "text": "Going to sleep mode. See you later!" } }, { "module": "exit" }]
+
+# User: Stop listening.
+# Assistant: [{ "module": "speak", "args": { "text": "Stopping and returning to sleep mode." } }, { "module": "exit" }]
+
+# User: Goodbye.
+# Assistant: [{ "module": "speak", "args": { "text": "Goodbye, Tristan!" } }, { "module": "exit" }]
+
+# User: Thank you.
+# Assistant: [{ "module": "speak", "args": { "text": "You're welcome!" } }, { "module": "exit" }]
+
+# --- Settings Examples ---
+# User: Change the voice speed to 1.5.
+# Assistant: [{ "module": "speak", "args": { "text": "Setting voice speed to 1.5." } }, { "module": "settings", "args": { "key": "voice-speed", "value": 1.5 } }]
+
+# User: Set the voice to nova.
+# Assistant: [{ "module": "speak", "args": { "text": "Changing voice to nova." } }, { "module": "settings", "args": { "key": "voice", "value": "nova" } }]
+
+# User: Turn on emotional voice.
+# Assistant: [{ "module": "speak", "args": { "text": "Enabling emotional voice." } }, { "module": "settings", "args": { "key": "emotional-voice", "value": true } }]
+
+# User: Disable permanent memory.
+# Assistant: [{ "module": "speak", "args": { "text": "Disabling permanent memory." } }, { "module": "settings", "args": { "key": "permanent-memory", "value": false } }]
+
+# User: Set the silence delay to 10 seconds.
+# Assistant: [{ "module": "speak", "args": { "text": "Setting silence delay to 10 seconds." } }, { "module": "settings", "args": { "key": "silence-delay", "value": 10 } }]
+
+# --- Clipboard Examples ---
+# User: Copy the clipboard content to a file.
+# Assistant: [{ "module": "speak", "args": { "text": "Saving clipboard content to file." } }, { "module": "clipboard", "args": { "actionType": "get", "filename": "clipboard.txt" } }]
+
+# User: Save what's in my clipboard.
+# Assistant: [{ "module": "speak", "args": { "text": "Saving clipboard to clipboard.txt." } }, { "module": "clipboard", "args": { "actionType": "get", "filename": "clipboard.txt" } }]
+
+# User: Set the clipboard to "Hello World".
+# Assistant: [{ "module": "speak", "args": { "text": "Setting clipboard to Hello World." } }, { "module": "clipboard", "args": { "actionType": "set", "text": "Hello World" } }]
+
+# User: Copy this text: Meeting at 3 PM tomorrow.
+# Assistant: [{ "module": "speak", "args": { "text": "Copying text to clipboard." } }, { "module": "clipboard", "args": { "actionType": "set", "text": "Meeting at 3 PM tomorrow." } }]
+
+# --- Browse Examples ---
+# User: Open Google.
+# Assistant: [{ "module": "speak", "args": { "text": "Opening Google." } }, { "module": "browse", "args": { "url": "https://www.google.com" } }]
+
+# User: Go to YouTube.
+# Assistant: [{ "module": "speak", "args": { "text": "Opening YouTube." } }, { "module": "browse", "args": { "url": "https://www.youtube.com" } }]
+
+# User: Open Wikipedia.
+# Assistant: [{ "module": "speak", "args": { "text": "Opening Wikipedia." } }, { "module": "browse", "args": { "url": "https://www.wikipedia.org" } }]
+
+# --- Browsing (Advanced) Examples ---
+# User: Navigate to Google and search for cats.
+# Assistant: [{ "module": "speak", "args": { "text": "Navigating to Google." } }, { "module": "browsing", "args": { "action": "navigate", "url": "https://www.google.com" } }, { "module": "browsing", "args": { "action": "type", "selector": "input[name='q']", "text": "cats" } }, { "module": "browsing", "args": { "action": "submit", "selector": "input[name='q']" } }]
+
+# User: Take a screenshot of the current webpage.
+# Assistant: [{ "module": "speak", "args": { "text": "Taking webpage screenshot." } }, { "module": "browsing", "args": { "action": "screenshot", "filename": "webpage.png" } }]
+
+# User: Close the browser.
+# Assistant: [{ "module": "speak", "args": { "text": "Closing browser." } }, { "module": "browsing", "args": { "action": "close" } }]
+
+# --- Spotify Examples ---
+# User: Play music.
+# Assistant: [{ "module": "speak", "args": { "text": "Starting music playback." } }, { "module": "spotify", "args": { "action": "play" } }]
+
+# User: Pause the music.
+# Assistant: [{ "module": "speak", "args": { "text": "Pausing music." } }, { "module": "spotify", "args": { "action": "pause" } }]
+
+# User: Play Bohemian Rhapsody.
+# Assistant: [{ "module": "speak", "args": { "text": "Playing Bohemian Rhapsody." } }, { "module": "spotify", "args": { "action": "play_song", "query": "Bohemian Rhapsody" } }]
+
+# User: Set volume to 50.
+# Assistant: [{ "module": "speak", "args": { "text": "Setting volume to 50 percent." } }, { "module": "spotify", "args": { "action": "set_volume", "volume": 50 } }]
+
+# User: Play Queen.
+# Assistant: [{ "module": "speak", "args": { "text": "Playing music by Queen." } }, { "module": "spotify", "args": { "action": "play_artist", "query": "Queen" } }]
+
+# --- Reprompt Examples ---
+# User: Analyze this screenshot for errors.
+# Assistant: [{ "module": "speak", "args": { "text": "I'll analyze the screenshot for errors." } }, { "module": "reprompt", "args": { "prompt": "Analyze this screenshot and identify any errors or issues you can see.", "filenames": "screenshot.png", "context": "User wants me to review a screenshot for potential errors or problems." } }]
+
+# User: What's in this file?
+# Assistant: [{ "module": "speak", "args": { "text": "Let me check what's in that file." } }, { "module": "reprompt", "args": { "prompt": "What is the content and purpose of this file?", "filenames": "document.txt", "context": "User is asking about the contents of a local file." } }]
+
+# User: Summarize these meeting notes.
+# Assistant: [{ "module": "speak", "args": { "text": "I'll summarize the meeting notes for you." } }, { "module": "reprompt", "args": { "prompt": "Please provide a concise summary of these meeting notes.", "filenames": "notes1.txt,notes2.txt", "context": "User wants a summary of multiple meeting note files." } }]
+
+# --- Complex Multi-step Examples ---
+# User: Take a screenshot and analyze it.
+# Assistant: [{ "module": "speak", "args": { "text": "Taking screenshot and preparing analysis." } }, { "module": "screenshot", "args": { "monitorId": 0, "filename": "analysis.png" } }, { "module": "reprompt", "args": { "prompt": "Please analyze this screenshot and describe what you see.", "filenames": "analysis.png", "context": "User requested a screenshot to be taken and then analyzed." } }]
+
+# User: Save my clipboard and tell me what's in it.
+# Assistant: [{ "module": "speak", "args": { "text": "Saving clipboard content and analyzing it." } }, { "module": "clipboard", "args": { "actionType": "get", "filename": "clipboard_content.txt" } }, { "module": "reprompt", "args": { "prompt": "What is the content of this clipboard file and what type of information does it contain?", "filenames": "clipboard_content.txt", "context": "User wants to save and analyze their clipboard content." } }]
+
+# --- Error Handling Examples ---
+# User: What's the weather?
+# Assistant: [{ "module": "speak", "args": { "text": "I don't have access to weather information. I can help with screenshots, file management, browser automation, and system settings." } }]
+
+# User: Send an email.
+# Assistant: [{ "module": "speak", "args": { "text": "I can't send emails directly, but I can help you open your email in a browser or manage files and system settings." } }]
+
+# --- Natural Conversation Examples ---
+# User: How are you?
+# Assistant: [{ "module": "speak", "args": { "text": "I'm doing well, thank you! All systems are running smoothly. How can I help you today?" } }]
+
+# User: What can you do?
+# Assistant: [{ "module": "speak", "args": { "text": "I can take screenshots, speak text, manage your clipboard, browse websites, control Spotify, adjust settings, and analyze files using reprompt. What would you like me to help with?" } }]
+Set transcription precision to 3.
+Change the voice to echo.
+Set the silence delay to 5 seconds.
+Set the silence delay to 60 seconds.
+
+# --- Clipboard ---
+Copy the current clipboard to a file called clip.txt.
+Paste 'Hello world!' into the clipboard.
+Get the clipboard contents and save them as clipboard.txt.
+
+# --- More Clipboard Prompts ---
+Copy clipboard contents to clipboard1.txt.
+Paste 'Test message' into the clipboard.
+Get clipboard and save as testclip.txt.
+Set clipboard to 'Sample text'.
+
+# --- Reprompt ---
+Analyze the file screenshot.png and tell me what's in it.
+Summarize the files file1.txt and file2.txt.
+Given the extracted data, what should I do next?
+
+# --- More Reprompt Prompts ---
+What is in the file report.pdf?
+Analyze the screenshot called error.png and tell me what you see.
+Summarize the contents of notes1.txt and notes2.txt.
+Given the data in data.csv, what should I do next?
+What information is in the file summary.docx?
+Extract all emails from emails.txt.
+What are the main points in meeting.txt?
+Given the attached files, what is the next step?
+Analyze the attached screenshot and summarize the errors.
+What is the content of the file config.json?
+What is the difference between file1.txt and file2.txt?
+Summarize all the attached documents.
+What should I do after reviewing the attached files?
+What is the next action based on the data in data.csv?
+What is the summary of the attached PDF?
+What is the context of the file context.txt?
+What is the result of the analysis in analysis.txt?
+What is the main idea in the file idea.txt?
+What is the conclusion in conclusion.txt?
+What is the next step after reading the attached files?
+
+# --- Browse ---
+Open Google in my browser.
+Go to https://www.wikipedia.org.
+
+# --- More Browse Prompts ---
+Open the website https://openai.com.
+Go to https://github.com in my browser.
+Open the homepage of https://news.ycombinator.com.
+
+# --- Browsing (Playwright automation) ---
+Go to https://www.google.com and search for 'python programming'.
+Type 'OpenAI' into the search box on Google and submit.
+Click the 'I'm Feeling Lucky' button on Google.
+Take a screenshot of the current web page and save it as google.png.
+Get the title of the current web page.
+Extract the text from the first heading on the page.
+Close the browser session.
+
+# --- More Browsing Prompts ---
+Navigate to https://www.bing.com and search for 'AI news'.
+Type 'weather today' into the search box on Bing and submit.
+Click the search button on Bing.
+Take a screenshot of the Bing results page and save it as bing.png.
+Get the title of the Bing results page.
+Extract the text from the first result on Bing.
+Close the Bing browser session.
+Navigate to https://www.reddit.com and search for 'python'.
+Type 'machine learning' into the Reddit search box and submit.
+Click the first post on Reddit.
+Take a screenshot of the Reddit page and save it as reddit.png.
+Get the title of the Reddit page.
+Extract the text from the first post on Reddit.
+Close the Reddit browser session.
+
+# --- Multi-command / Chained ---
+Say 'Taking a screenshot now.' and then take a screenshot of the main monitor.
+Tell me 'Opening Google' and then open https://www.google.com in the browser.
+Say 'Changing settings' and set the voice speed to 1.2.
+
+# --- More Multi-command / Chained Prompts ---
+Say 'Starting screenshot.' and then take a screenshot of the secondary monitor.
+Tell me 'Opening Wikipedia' and then open https://www.wikipedia.org in the browser.
+Say 'Setting silence delay' and set the silence delay to 20 seconds.
+Say 'Copying clipboard' and copy the clipboard to clipboard2.txt.
+Say 'Analyzing file' and analyze the file analysis.txt.
+Say 'Summarizing files' and summarize the files summary1.txt and summary2.txt.
+Say 'Extracting emails' and extract all emails from emails.txt.
+Say 'Comparing files' and compare file1.txt and file2.txt.
+
+# --- Edge cases ---
+Take a screenshot and name it with today's date.
+Set the clipboard to an empty string.
+Set the silence delay to the maximum allowed value.
+
+# --- More Edge Cases ---
+Take a screenshot and name it with the current timestamp.
+Set the clipboard to a single space.
+Set the silence delay to 1 second.
+Set the silence delay to 120 seconds.
+
+# --- Reprompt-Heavy Prompts ---
+Analyze the attached PDF and summarize its contents.
+What is the main takeaway from the attached report?
+Given the attached spreadsheet, what are the key trends?
+What should I do after reviewing the attached screenshot?
+What is the summary of the attached image?
+What is the next step after analyzing the attached data?
+What is the main idea in the attached document?
+What is the conclusion in the attached file?
+What is the next action based on the attached files?
+What is the context of the attached text file?
+What is the result of the analysis in the attached file?
+What is the main point in the attached idea file?
+What is the summary of the attached conclusion file?
+What is the next step after reading the attached files?
+What is the difference between the attached files?
+Summarize all the attached files.
+What should I do after reviewing the attached documents?
+What is the next action based on the attached data?
+What is the summary of the attached PDF file?
+What is the context of the attached context file?
+What is the result of the analysis in the attached analysis file?
+What is the main idea in the attached idea file?
+What is the conclusion in the attached conclusion file?
+What is the next step after reading the attached files?
+
+# --- Reprompt with context ---
+Given the previous analysis, what should I do next?
+Based on the last summary, what is the next step?
+After reviewing the attached files, what should I do?
+Given the context, what is the next action?
+Based on the previous results, what should I do?
+After analyzing the attached data, what is the next step?
+Given the previous context, what is the next action?
+Based on the last analysis, what should I do?
+After reviewing the attached documents, what is the next step?
+Given the previous summary, what is the next action?
+
+# --- Reprompt with filenames ---
+What is in the file file1.txt?
+What is in the file file2.txt?
+What is in the file file3.txt?
+What is in the file file4.txt?
+What is in the file file5.txt?
+What is in the file file6.txt?
+What is in the file file7.txt?
+What is in the file file8.txt?
+What is in the file file9.txt?
+What is in the file file10.txt?
+
+# --- Reprompt with multiple files ---
+What is in the files file1.txt and file2.txt?
+What is in the files file3.txt and file4.txt?
+What is in the files file5.txt and file6.txt?
+What is in the files file7.txt and file8.txt?
+What is in the files file9.txt and file10.txt?
+
+# --- Reprompt with different file types ---
+What is in the file image.png?
+What is in the file audio.mp3?
+What is in the file video.mp4?
+What is in the file document.pdf?
+What is in the file spreadsheet.xlsx?
+What is in the file presentation.pptx?
+What is in the file archive.zip?
+What is in the file code.py?
+What is in the file data.csv?
+What is in the file config.json?
+
+# --- Reprompt with complex context ---
+Given the previous analysis and the attached files, what should I do next?
+Based on the last summary and the attached documents, what is the next step?
+After reviewing the attached files and the previous context, what should I do?
+Given the context and the attached data, what is the next action?
+Based on the previous results and the attached files, what should I do?
+After analyzing the attached data and the previous context, what is the next step?
+Given the previous context and the attached files, what is the next action?
+Based on the last analysis and the attached documents, what should I do?
+After reviewing the attached documents and the previous summary, what is the next step?
+Given the previous summary and the attached files, what is the next action?
+
+# --- Reprompt with instructions ---
+Please analyze the attached file and summarize its contents.
+Please summarize the attached files.
+Please extract all emails from the attached file.
+Please compare the attached files.
+Please analyze the attached screenshot and summarize the errors.
+Please summarize the attached documents.
+Please extract all phone numbers from the attached file.
+Please compare the attached files and summarize the differences.
+Please analyze the attached image and summarize its contents.
+Please summarize the attached PDF file.
+

@@ -1,7 +1,7 @@
 [
   {
     "setting-id": "auto-conversation-end",
-    "value": false,
+    "value": true,
     "description": "Automatically end the conversation after a period of inactivity."
   },
   {
@@ -28,6 +28,11 @@
     "setting-id": "transcription-precision",
     "value": 1,
     "description": "Controls the precision of speech-to-text transcription (1: tiny.en, 2: small.en, 3: medium.en)."
+  },
+  {
+    "setting-id": "voice-instructions",
+    "value": "Use a lower pitch, speak slowly, and keep a relaxed natural pace.",
+    "description": "Instructions for how the AI should speak and tone his voice using the speak module."
   },
   {
     "setting-id": "voice-name",

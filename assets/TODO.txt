@@ -1,0 +1,7 @@
+[2025-07-06 23:06] Test TODO item in assets folder
+[2025-07-07 18:13] Start inactivity timer only after the AI finishes speaking.
+[2025-07-07 18:14] Add a setting for customizing the number of seconds to trigger inactivity.
+[2025-07-07 19:15] Add a function for the assistant to politely interrupt and respond whenever the user speaks or starts talking.
+[2025-07-07 20:07] Add better contextual memory AI.
+[2025-07-07 20:07] Add embedding system to retrieve extremely old memory using relevancy and vector embeddings.
+[2025-07-07 20:19] Add a cool down period after prompt sending and lower the silence threshold for voice recording.

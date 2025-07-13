@@ -28,89 +28,103 @@ def get_active_device_id():
             # Return the first available device if none are active
             return devices['devices'][0]['id']
     except Exception as e:
-        log(f"[spotify.py] Error fetching devices: {e}", "ERROR")
+        log(f"Error fetching devices: {e}", "ERROR", script="spotify.py")
     return None
 
-def run(action=None, song_name=None, artist=None, album=None, year=None, genre=None, device=None, volume=None, **kwargs):
+def run(action=None, search=None, volume=None, device=None, **kwargs):
     """
-    action: play, stop, next, previous, raise_volume, lower_volume, set_volume
-    song_name: track title
-    artist: artist name
-    album: album name
-    year: year or range
-    genre: genre
-    device: 'phone', 'computer', or None (auto)
-    volume: int (0-100) for set_volume
+    Simple Spotify control with minimal arguments.
+    action: play, pause, resume, next, back, volume
+    search: song/artist search term (only for play action)
+    volume: int (0-100, only for volume action)
+    device: string (computer|phone - optional)
     """
     try:
-        # Choose device_id based on argument
-        if device == "phone":
-            device_id = os.getenv("SPOTIPY_PHONE_ID")
-            if not device_id:
-                log("[spotify.py] SPOTIPY_PHONE_ID not set in environment.", "ERROR")
-                return
-        elif device == "computer":
+        if not action:
+            log("No action specified. Use: play, pause, resume, next, back, volume", "ERROR", script="spotify.py")
+            return
+
+        # Get device ID based on device argument
+        device_id = None
+        if device == "computer":
             device_id = os.getenv("SPOTIPY_COMPUTER_ID")
             if not device_id:
-                log("[spotify.py] SPOTIPY_COMPUTER_ID not set in environment.", "ERROR")
+                log("SPOTIPY_COMPUTER_ID not set in environment", "ERROR", script="spotify.py")
+                return
+        elif device == "phone":
+            device_id = os.getenv("SPOTIPY_PHONE_ID")
+            if not device_id:
+                log("SPOTIPY_PHONE_ID not set in environment", "ERROR", script="spotify.py")
                 return
         else:
+            # Auto-detect active device if no specific device requested
             device_id = get_active_device_id()
             if not device_id:
-                log("[spotify.py] No active Spotify device found. Please open Spotify and play a song on any device.", "ERROR")
+                log("No active Spotify device found. Please open Spotify on any device.", "ERROR", script="spotify.py")
                 return
+
         if action == "play":
-            # Build search query with all filters
-            query_parts = []
-            if song_name:
-                query_parts.append(f'track:"{song_name}"')
-            if artist:
-                query_parts.append(f'artist:"{artist}"')
-            if album:
-                query_parts.append(f'album:"{album}"')
-            if year:
-                query_parts.append(f'year:{year}')
-            if genre:
-                query_parts.append(f'genre:"{genre}"')
-            query = ' '.join(query_parts)
-            if not query:
-                log("[spotify.py] At least one of song_name, artist, album, year, or genre must be provided for play.", "ERROR")
-                return
-            results = sp.search(q=query, type="track", limit=1)
-            if results['tracks']['items']:
-                track_uri = results['tracks']['items'][0]['uri']
-                sp.start_playback(device_id=device_id, uris=[track_uri])
-                log(f"[spotify.py] Playing: {query} on device {device or 'auto'}.", "INFO")
+            if search:
+                try:
+                    # Simple search for track or artist
+                    results = sp.search(q=search, type="track", limit=1)
+                    if results['tracks']['items']:
+                        track_uri = results['tracks']['items'][0]['uri']
+                        track_name = results['tracks']['items'][0]['name']
+                        artist_name = results['tracks']['items'][0]['artists'][0]['name']
+                        sp.start_playback(device_id=device_id, uris=[track_uri])
+                    else:
+                        log(f"No tracks found for: {search}", "ERROR", script="spotify.py")
+                except Exception as e:
+                    log(f"Error searching for track '{search}': {e}", "ERROR", script="spotify.py")
             else:
-                log(f"[spotify.py] Song not found: {query}", "ERROR")
-        elif action == "stop":
-            sp.pause_playback(device_id=device_id)
-            log(f"[spotify.py] Playback stopped on device {device or 'auto'}.", "INFO")
+                try:
+                    # Resume current playback
+                    sp.start_playback(device_id=device_id)
+                except Exception as e:
+                    log(f"Error resuming playback: {e}", "ERROR", script="spotify.py")
+
+        elif action == "pause":
+            try:
+                sp.pause_playback(device_id=device_id)
+            except Exception as e:
+                log(f"Error pausing playback: {e}", "ERROR", script="spotify.py")
+
+        elif action == "resume":
+            try:
+                sp.start_playback(device_id=device_id)
+            except Exception as e:
+                log(f"Error resuming playback: {e}", "ERROR", script="spotify.py")
+
         elif action == "next":
-            sp.next_track(device_id=device_id)
-            log(f"[spotify.py] Skipped to next track on device {device or 'auto'}.", "INFO")
-        elif action == "previous":
-            sp.previous_track(device_id=device_id)
-            log(f"[spotify.py] Went to previous track on device {device or 'auto'}.", "INFO")
-        elif action == "raise_volume":
-            current = sp.current_playback()
-            if current and 'device' in current and 'volume_percent' in current['device']:
-                new_vol = min(current['device']['volume_percent'] + 10, 100)
-                sp.volume(new_vol, device_id=device_id)
-                log(f"[spotify.py] Volume raised to {new_vol} on device {device or 'auto'}.", "INFO")
-        elif action == "lower_volume":
-            current = sp.current_playback()
-            if current and 'device' in current and 'volume_percent' in current['device']:
-                new_vol = max(current['device']['volume_percent'] - 10, 0)
-                sp.volume(new_vol, device_id=device_id)
-                log(f"[spotify.py] Volume lowered to {new_vol} on device {device or 'auto'}.", "INFO")
-        elif action == "set_volume":
-            if volume is not None and 0 <= int(volume) <= 100:
-                sp.volume(int(volume), device_id=device_id)
-                log(f"[spotify.py] Volume set to {volume} on device {device or 'auto'}.", "INFO")
-            else:
-                log("[spotify.py] Volume must be an integer between 0 and 100.", "ERROR")
+            try:
+                sp.next_track(device_id=device_id)
+            except Exception as e:
+                log(f"Error skipping to next track: {e}", "ERROR", script="spotify.py")
+
+        elif action == "back":
+            try:
+                sp.previous_track(device_id=device_id)
+            except Exception as e:
+                log(f"Error going to previous track: {e}", "ERROR", script="spotify.py")
+
+        elif action == "volume":
+            if volume is None:
+                log("Volume level required (0-100)", "ERROR", script="spotify.py")
+                return
+            try:
+                volume_int = int(volume)
+                if 0 <= volume_int <= 100:
+                    sp.volume(volume_int, device_id=device_id)
+                else:
+                    log("Volume must be between 0 and 100", "ERROR", script="spotify.py")
+            except (ValueError, TypeError):
+                log("Volume must be a valid number between 0 and 100", "ERROR", script="spotify.py")
+            except Exception as e:
+                log(f"Error setting volume to {volume}: {e}", "ERROR", script="spotify.py")
+
         else:
-            log("[spotify.py] Invalid action or missing parameters.", "ERROR")
+            log(f"Invalid action: {action}. Use: play, pause, resume, next, back, volume", "ERROR", script="spotify.py")
+
     except Exception as e:
-        log(f"[spotify.py] Spotify API error: {e}", "ERROR")
+        log(f"Spotify module error: {e}", "ERROR", script="spotify.py")

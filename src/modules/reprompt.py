@@ -3,15 +3,46 @@ import os
 import json
 import asyncio
 import base64
+import requests
+import traceback
+from dotenv import load_dotenv
 from utils import log
-from API import chatgpt_text_to_text
 from commands import execute_commands_from_response_block_sync
+
+load_dotenv()
+
+def send_openai_request(endpoint, payload, headers=None, stream=False):
+    """Send request to OpenAI API"""
+    try:
+        url = f"https://api.openai.com/v1/{endpoint}"
+        if headers is None:
+            headers = {"Authorization": f"Bearer {os.getenv('OPENAI_API_KEY', '')}"}
+        response = requests.post(url, headers={**headers, "Content-Type": "application/json"}, json=payload, stream=stream)
+        response.raise_for_status()
+        if stream:
+            return response
+        return response.json()
+    except Exception as e:
+        log(f"OpenAI API request failed: {e}", "ERROR", script="reprompt.py")
+        return None
+
+def chatgpt_text_to_text(*, prompt=None, **kwargs):
+    """Send text to ChatGPT and get response"""
+    if prompt is not None:
+        payload = {
+            "model": kwargs.get("model", "gpt-4.1"),
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        payload.update({k: v for k, v in kwargs.items() if k not in ("model",)})
+    else:
+        payload = kwargs
+    return send_openai_request('chat/completions', payload)
 
 def run(prompt=None, filenames=None, context=None, **kwargs):
     script_name = "reprompt.py"
     from commands import execute_commands_from_response_block_sync
     if not prompt:
-        log(f"[reprompt.py]\n[ERROR]\nMissing required argument: prompt.", level="ERROR", script=script_name)
+        log("Missing required argument: prompt", "ERROR", script="reprompt.py")
         return
     # --- Load baseprompt, settings, commands, memory ---
     try:
@@ -91,12 +122,14 @@ def run(prompt=None, filenames=None, context=None, **kwargs):
     except Exception as e:
         log(f"[reprompt.py]\n[ERROR]\nMalformed API response: {response}\n{e}", level="ERROR", script=script_name)
     if content:
-        for line in content.split('\n'):
-            if line.strip().startswith('/'):
-                log(f"Executing command: {line.strip()}", "COMMAND")
-        if asyncio.iscoroutinefunction(execute_commands_from_response_block_sync):
-            asyncio.run(execute_commands_from_response_block_sync(content))
+        # Use new JSON command processing
+        from commands import execute_commands_from_json_response_async
+        log(f"Processing reprompt AI response: {content}", "COMMAND")
+        if asyncio.iscoroutinefunction(execute_commands_from_json_response_async):
+            asyncio.run(execute_commands_from_json_response_async(content))
         else:
-            execute_commands_from_response_block_sync(content)
-        log("All commands executed. AI response complete.", "COMMAND")
+            # Fallback for sync execution
+            from commands import execute_commands_from_json_response
+            execute_commands_from_json_response(content)
+        log("All reprompt commands executed. AI response complete.", "COMMAND")
     return content

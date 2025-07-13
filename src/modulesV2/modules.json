@@ -1,0 +1,684 @@
+{
+  "modules": {
+    "agenda": {
+      "description": "Calendar and event management with Google Calendar integration",
+      "actions": [
+        {
+          "keyword": "add",
+          "description": "Add a new calendar event",
+          "required_args": [
+            {"name": "title", "type": "string"}
+          ],
+          "optional_args": [
+            {"name": "date", "type": "string"},
+            {"name": "time", "type": "string"},
+            {"name": "duration", "type": "integer"},
+            {"name": "description", "type": "string"},
+            {"name": "location", "type": "string"}
+          ],
+          "example": "action=add title='Meeting with client' date='2024-01-15' time='14:00'"
+        },
+        {
+          "keyword": "list",
+          "description": "List calendar events",
+          "required_args": [],
+          "optional_args": [
+            {"name": "date", "type": "string"},
+            {"name": "days", "type": "integer"},
+            {"name": "limit", "type": "integer"}
+          ],
+          "example": "action=list days=7"
+        },
+        {
+          "keyword": "today",
+          "description": "Show today's events",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=today"
+        },
+        {
+          "keyword": "tomorrow",
+          "description": "Show tomorrow's events",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=tomorrow"
+        },
+        {
+          "keyword": "delete",
+          "description": "Delete a calendar event",
+          "required_args": [
+            {"name": "event_id", "type": "string"}
+          ],
+          "optional_args": [],
+          "example": "action=delete event_id='abc123'"
+        }
+      ],
+      "effects": "Reads and modifies Google Calendar events",
+      "dependencies": ["google-auth", "google-api-python-client"],
+      "sample_response": {
+        "success": true,
+        "message": "Event added successfully",
+        "event": {
+          "id": "abc123",
+          "title": "Meeting with client",
+          "start": "2024-01-15T14:00:00",
+          "end": "2024-01-15T15:00:00"
+        }
+      }
+    },
+    "browse": {
+      "description": "Web browsing, search, and URL navigation",
+      "actions": [
+        {
+          "keyword": "open",
+          "description": "Open a specific URL",
+          "required_args": [
+            {"name": "url", "type": "string"}
+          ],
+          "optional_args": [],
+          "example": "action=open url='https://example.com'"
+        },
+        {
+          "keyword": "search",
+          "description": "Search the web",
+          "required_args": [
+            {"name": "query", "type": "string"}
+          ],
+          "optional_args": [
+            {"name": "limit", "type": "integer"}
+          ],
+          "example": "action=search query='Python tutorials' limit=5"
+        },
+        {
+          "keyword": "maps",
+          "description": "Open maps for a location",
+          "required_args": [
+            {"name": "location", "type": "string"}
+          ],
+          "optional_args": [
+            {"name": "type", "type": "string"}
+          ],
+          "example": "action=maps location='New York City'"
+        },
+        {
+          "keyword": "youtube",
+          "description": "Search and open YouTube videos",
+          "required_args": [
+            {"name": "query", "type": "string"}
+          ],
+          "optional_args": [],
+          "example": "action=youtube query='Python programming'"
+        },
+        {
+          "keyword": "news",
+          "description": "Get latest news",
+          "required_args": [],
+          "optional_args": [
+            {"name": "topic", "type": "string"},
+            {"name": "limit", "type": "integer"}
+          ],
+          "example": "action=news topic='technology'"
+        }
+      ],
+      "effects": "Opens web browser, navigates to URLs, performs web searches",
+      "dependencies": ["requests", "webbrowser"],
+      "sample_response": {
+        "success": true,
+        "message": "Opened https://example.com",
+        "url": "https://example.com",
+        "action": "open"
+      }
+    },
+    "clipboard": {
+      "description": "Clipboard management for copy, paste, and text manipulation",
+      "actions": [
+        {
+          "keyword": "get",
+          "description": "Get current clipboard contents",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=get"
+        },
+        {
+          "keyword": "set",
+          "description": "Set clipboard contents",
+          "required_args": [
+            {"name": "text", "type": "string"}
+          ],
+          "optional_args": [],
+          "example": "action=set text='Hello, World!'"
+        },
+        {
+          "keyword": "clear",
+          "description": "Clear clipboard contents",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=clear"
+        },
+        {
+          "keyword": "append",
+          "description": "Append text to clipboard",
+          "required_args": [
+            {"name": "text", "type": "string"}
+          ],
+          "optional_args": [],
+          "example": "action=append text=' Additional text'"
+        }
+      ],
+      "effects": "Modifies system clipboard",
+      "dependencies": ["pyperclip"],
+      "sample_response": {
+        "success": true,
+        "message": "Clipboard contents retrieved",
+        "content": "Hello, World!",
+        "length": 13
+      }
+    },
+    "exit": {
+      "description": "Session termination and cleanup",
+      "actions": [
+        {
+          "keyword": "quit",
+          "description": "Terminate the current session",
+          "required_args": [],
+          "optional_args": [
+            {"name": "message", "type": "string"}
+          ],
+          "example": "action=quit message='Session ended by user'"
+        }
+      ],
+      "effects": "Terminates the current session or application",
+      "dependencies": [],
+      "sample_response": {
+        "success": true,
+        "message": "Session terminated",
+        "action": "quit",
+        "timestamp": "2024-01-15T10:30:00"
+      }
+    },
+    "news": {
+      "description": "News headlines and article retrieval",
+      "actions": [
+        {
+          "keyword": "headlines",
+          "description": "Get top news headlines",
+          "required_args": [],
+          "optional_args": [
+            {"name": "limit", "type": "integer"},
+            {"name": "country", "type": "string"}
+          ],
+          "example": "action=headlines limit=10 country=us"
+        },
+        {
+          "keyword": "search",
+          "description": "Search for specific news",
+          "required_args": [
+            {"name": "query", "type": "string"}
+          ],
+          "optional_args": [
+            {"name": "limit", "type": "integer"},
+            {"name": "language", "type": "string"}
+          ],
+          "example": "action=search query='artificial intelligence' limit=5"
+        },
+        {
+          "keyword": "category",
+          "description": "Get news by category",
+          "required_args": [
+            {"name": "category", "type": "string"}
+          ],
+          "optional_args": [
+            {"name": "limit", "type": "integer"},
+            {"name": "country", "type": "string"}
+          ],
+          "example": "action=category category='technology' limit=8"
+        }
+      ],
+      "effects": "Retrieves news articles from various sources",
+      "dependencies": ["requests", "newsapi"],
+      "sample_response": {
+        "success": true,
+        "message": "Retrieved 10 news headlines",
+        "articles": [
+          {
+            "title": "Breaking News Title",
+            "description": "Article description",
+            "url": "https://example.com/article",
+            "published_at": "2024-01-15T10:00:00Z"
+          }
+        ]
+      }
+    },
+    "reprompt": {
+      "description": "File analysis and content processing",
+      "actions": [
+        {
+          "keyword": "analyze",
+          "description": "Analyze file contents",
+          "required_args": [
+            {"name": "file_path", "type": "string"}
+          ],
+          "optional_args": [
+            {"name": "analysis_type", "type": "string"}
+          ],
+          "example": "action=analyze file_path='/path/to/file.txt'"
+        },
+        {
+          "keyword": "summarize",
+          "description": "Summarize file contents",
+          "required_args": [
+            {"name": "file_path", "type": "string"}
+          ],
+          "optional_args": [
+            {"name": "max_length", "type": "integer"}
+          ],
+          "example": "action=summarize file_path='/path/to/document.pdf'"
+        }
+      ],
+      "effects": "Reads and analyzes file contents",
+      "dependencies": ["file system access"],
+      "sample_response": {
+        "success": true,
+        "message": "File analyzed successfully",
+        "file_path": "/path/to/file.txt",
+        "analysis": {
+          "type": "text",
+          "word_count": 1250,
+          "summary": "File contains technical documentation..."
+        }
+      }
+    },
+    "screenshot": {
+      "description": "Screen capture and image management",
+      "actions": [
+        {
+          "keyword": "capture",
+          "description": "Take a screenshot",
+          "required_args": [],
+          "optional_args": [
+            {"name": "monitor", "type": "integer"},
+            {"name": "region", "type": "string"}
+          ],
+          "example": "action=capture monitor=1"
+        },
+        {
+          "keyword": "full",
+          "description": "Capture full desktop",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=full"
+        },
+        {
+          "keyword": "window",
+          "description": "Capture active window",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=window"
+        }
+      ],
+      "effects": "Creates screenshot files",
+      "dependencies": ["pillow", "pyautogui"],
+      "sample_response": {
+        "success": true,
+        "message": "Screenshot captured",
+        "file_path": "/temp/screenshot_20240115_103000.png",
+        "dimensions": {
+          "width": 1920,
+          "height": 1080
+        }
+      }
+    },
+    "settings": {
+      "description": "Configuration and settings management",
+      "actions": [
+        {
+          "keyword": "get",
+          "description": "Get setting value",
+          "required_args": [
+            {"name": "key", "type": "string"}
+          ],
+          "optional_args": [],
+          "example": "action=get key='voice_speed'"
+        },
+        {
+          "keyword": "set",
+          "description": "Set setting value",
+          "required_args": [
+            {"name": "key", "type": "string"},
+            {"name": "value", "type": "any"}
+          ],
+          "optional_args": [],
+          "example": "action=set key='voice_speed' value=1.2"
+        },
+        {
+          "keyword": "list",
+          "description": "List all settings",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=list"
+        },
+        {
+          "keyword": "reset",
+          "description": "Reset settings to default",
+          "required_args": [],
+          "optional_args": [
+            {"name": "key", "type": "string"}
+          ],
+          "example": "action=reset key='voice_speed'"
+        }
+      ],
+      "effects": "Modifies application settings",
+      "dependencies": [],
+      "sample_response": {
+        "success": true,
+        "message": "Setting updated",
+        "key": "voice_speed",
+        "value": 1.2,
+        "previous_value": 1.0
+      }
+    },
+    "speak": {
+      "description": "Text-to-speech and voice control",
+      "actions": [
+        {
+          "keyword": "say",
+          "description": "Speak text aloud",
+          "required_args": [
+            {"name": "text", "type": "string"}
+          ],
+          "optional_args": [
+            {"name": "voice", "type": "string"},
+            {"name": "speed", "type": "float"},
+            {"name": "volume", "type": "float"}
+          ],
+          "example": "action=say text='Hello, World!' voice='default' speed=1.0"
+        },
+        {
+          "keyword": "stop",
+          "description": "Stop current speech",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=stop"
+        },
+        {
+          "keyword": "volume",
+          "description": "Control speech volume",
+          "required_args": [
+            {"name": "level", "type": "float"}
+          ],
+          "optional_args": [],
+          "example": "action=volume level=0.8"
+        }
+      ],
+      "effects": "Produces audio output through speakers",
+      "dependencies": ["pyttsx3", "speech synthesis"],
+      "sample_response": {
+        "success": true,
+        "message": "Text spoken successfully",
+        "text": "Hello, World!",
+        "duration": 2.5,
+        "voice": "default"
+      }
+    },
+    "spotify": {
+      "description": "Spotify music control and playback",
+      "actions": [
+        {
+          "keyword": "play",
+          "description": "Play music",
+          "required_args": [],
+          "optional_args": [
+            {"name": "query", "type": "string"},
+            {"name": "song", "type": "string"},
+            {"name": "artist", "type": "string"},
+            {"name": "device", "type": "string"}
+          ],
+          "example": "action=play query='Bohemian Rhapsody' device='computer'"
+        },
+        {
+          "keyword": "pause",
+          "description": "Pause music",
+          "required_args": [],
+          "optional_args": [
+            {"name": "device", "type": "string"}
+          ],
+          "example": "action=pause"
+        },
+        {
+          "keyword": "next",
+          "description": "Skip to next track",
+          "required_args": [],
+          "optional_args": [
+            {"name": "device", "type": "string"}
+          ],
+          "example": "action=next"
+        },
+        {
+          "keyword": "back",
+          "description": "Go to previous track",
+          "required_args": [],
+          "optional_args": [
+            {"name": "device", "type": "string"}
+          ],
+          "example": "action=back"
+        },
+        {
+          "keyword": "volume",
+          "description": "Control playback volume",
+          "required_args": [
+            {"name": "level", "type": "integer"}
+          ],
+          "optional_args": [
+            {"name": "device", "type": "string"}
+          ],
+          "example": "action=volume level=50"
+        },
+        {
+          "keyword": "status",
+          "description": "Get current playback status",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=status"
+        },
+        {
+          "keyword": "search",
+          "description": "Search for tracks",
+          "required_args": [
+            {"name": "query", "type": "string"}
+          ],
+          "optional_args": [
+            {"name": "limit", "type": "integer"}
+          ],
+          "example": "action=search query='The Beatles' limit=10"
+        }
+      ],
+      "effects": "Controls Spotify playback on connected devices",
+      "dependencies": ["spotipy", "spotify-web-api"],
+      "sample_response": {
+        "success": true,
+        "message": "Playing: Bohemian Rhapsody by Queen",
+        "track": "Bohemian Rhapsody",
+        "artist": "Queen",
+        "is_playing": true,
+        "device": "Computer"
+      }
+    },
+    "todo": {
+      "description": "Task and TODO list management",
+      "actions": [
+        {
+          "keyword": "add",
+          "description": "Add a new TODO item",
+          "required_args": [
+            {"name": "text", "type": "string"}
+          ],
+          "optional_args": [],
+          "example": "action=add text='Buy groceries'"
+        },
+        {
+          "keyword": "list",
+          "description": "List all TODO items",
+          "required_args": [],
+          "optional_args": [
+            {"name": "limit", "type": "integer"}
+          ],
+          "example": "action=list limit=10"
+        },
+        {
+          "keyword": "clear",
+          "description": "Clear all TODO items",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=clear"
+        },
+        {
+          "keyword": "count",
+          "description": "Count TODO items",
+          "required_args": [],
+          "optional_args": [],
+          "example": "action=count"
+        }
+      ],
+      "effects": "Modifies TODO.txt file in assets folder",
+      "dependencies": [],
+      "sample_response": {
+        "success": true,
+        "message": "Added to TODO: Buy groceries",
+        "item": "Buy groceries",
+        "total_items": 5,
+        "timestamp": "2024-01-15T10:30:00"
+      }
+    },
+    "weather": {
+      "description": "Weather information and forecasts",
+      "actions": [
+        {
+          "keyword": "current",
+          "description": "Get current weather",
+          "required_args": [],
+          "optional_args": [
+            {"name": "location", "type": "string"},
+            {"name": "city", "type": "string"}
+          ],
+          "example": "action=current location='New York'"
+        },
+        {
+          "keyword": "forecast",
+          "description": "Get weather forecast",
+          "required_args": [],
+          "optional_args": [
+            {"name": "location", "type": "string"},
+            {"name": "days", "type": "integer"}
+          ],
+          "example": "action=forecast location='London' days=5"
+        },
+        {
+          "keyword": "today",
+          "description": "Get today's weather summary",
+          "required_args": [],
+          "optional_args": [
+            {"name": "location", "type": "string"}
+          ],
+          "example": "action=today location='Tokyo'"
+        },
+        {
+          "keyword": "tomorrow",
+          "description": "Get tomorrow's weather",
+          "required_args": [],
+          "optional_args": [
+            {"name": "location", "type": "string"}
+          ],
+          "example": "action=tomorrow"
+        },
+        {
+          "keyword": "weekly",
+          "description": "Get weekly forecast",
+          "required_args": [],
+          "optional_args": [
+            {"name": "location", "type": "string"}
+          ],
+          "example": "action=weekly location='Paris'"
+        },
+        {
+          "keyword": "search",
+          "description": "Get weather for specific location",
+          "required_args": [
+            {"name": "location", "type": "string"}
+          ],
+          "optional_args": [],
+          "example": "action=search location='San Francisco'"
+        }
+      ],
+      "effects": "Retrieves weather data from external APIs",
+      "dependencies": ["requests", "open-meteo-api"],
+      "sample_response": {
+        "success": true,
+        "message": "Current weather in New York: 22°C, Partly cloudy",
+        "location": "New York, United States",
+        "temperature": 22,
+        "description": "Partly cloudy",
+        "humidity": 65,
+        "wind_speed": 12
+      }
+    }
+  },
+  "metadata": {
+    "version": "2.0",
+    "created": "2024-01-15",
+    "description": "ModulesV2 provides a strict, keyword-driven interface for AI interaction with various system capabilities",
+    "common_parameters": {
+      "return_data": {
+        "description": "Boolean flag to return data directly instead of saving to file",
+        "default": false,
+        "type": "boolean"
+      },
+      "action": {
+        "description": "The primary action/command to execute (REQUIRED)",
+        "required": true,
+        "type": "string"
+      }
+    },
+    "variable_types": {
+      "string": "Text data (e.g., 'Hello World')",
+      "integer": "Whole numbers (e.g., 42, 100)",
+      "float": "Decimal numbers (e.g., 1.5, 0.8)",
+      "boolean": "True/False values",
+      "any": "Any data type accepted"
+    },
+    "response_format": {
+      "direct_return": {
+        "description": "When return_data=true, returns JSON object with success, message, timestamp, and module-specific data",
+        "structure": {
+          "success": "boolean",
+          "message": "string",
+          "timestamp": "ISO 8601 string",
+          "module": "string",
+          "additional_data": "varies by module"
+        }
+      },
+      "file_based": {
+        "description": "When return_data=false, saves JSON to temp folder and returns simple message string",
+        "location": "temp/module_response_YYYYMMDD_HHMMSS.json"
+      }
+    },
+    "design_principles": [
+      "STRICT: One action keyword per command - no aliases",
+      "TYPED: All arguments specify exact variable types",
+      "CONSISTENT: Unified interface across all modules",
+      "DUAL-MODE: Direct return or file-based workflows",
+      "ROBUST: Comprehensive error handling and logging",
+      "SIMPLE: Clear, unambiguous command structure"
+    ],
+    "usage_examples": {
+      "basic_call": "module.run(action='search', query='example')",
+      "direct_return": "result = module.run(action='get', return_data=True)",
+      "file_based": "message = module.run(action='process', file_path='/path/to/file')",
+      "typed_args": "module.run(action='set', key='volume', value=0.8)"
+    },
+    "command_structure": {
+      "required": "action (string)",
+      "optional": "return_data (boolean)",
+      "module_specific": "See each module's required_args and optional_args with types"
+    }
+  }
+}

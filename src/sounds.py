@@ -1,8 +1,15 @@
-import pygame
+import sys
+import os
+from contextlib import redirect_stdout, redirect_stderr
+
+# Suppress pygame welcome and version messages
+with open(os.devnull, 'w') as devnull, redirect_stdout(devnull), redirect_stderr(devnull):
+    import pygame
+    pygame.mixer.init()
+
 import threading
 import asyncio
 import time
-import os
 from collections import deque
 
 # Global variables
@@ -11,8 +18,6 @@ speech_channel = None
 highest_speech_key = 0
 speech_path_queue = deque()
 
-# Initialize pygame mixer
-pygame.mixer.init()
 SOUND_EFFECT_CHANNEL = pygame.mixer.Channel(0)
 SPEECH_CHANNEL_INDEX = 1
 
@@ -64,7 +69,7 @@ def start_speech_worker():
     t.start()
 
 def interrupt_speech(fade_out: bool):
-    global highest_speech_key, speech_path_queue, speech_channel
+    global highest_speech_key, speech_path_queue, speech_channel, IS_ASSISTANT_SPEAKING
     highest_speech_key += 1
     speech_path_queue.clear()
     if speech_channel is not None:
@@ -72,3 +77,6 @@ def interrupt_speech(fade_out: bool):
             speech_channel.fadeout(500)
         else:
             speech_channel.stop()
+        # Immediately update the speaking flag
+        IS_ASSISTANT_SPEAKING = False
+        speech_channel = None

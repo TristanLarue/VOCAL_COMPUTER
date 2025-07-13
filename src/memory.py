@@ -1,6 +1,38 @@
 import os
 import json
-from API import chatgpt_text_to_text
+import requests
+import traceback
+from dotenv import load_dotenv
+from utils import log
+
+load_dotenv()
+
+def send_openai_request(endpoint, payload, headers=None, stream=False):
+    """Send request to OpenAI API"""
+    try:
+        url = f"https://api.openai.com/v1/{endpoint}"
+        if headers is None:
+            headers = {"Authorization": f"Bearer {os.getenv('OPENAI_API_KEY', '')}"}
+        response = requests.post(url, headers={**headers, "Content-Type": "application/json"}, json=payload, stream=stream)
+        response.raise_for_status()
+        if stream:
+            return response
+        return response.json()
+    except Exception as e:
+        log(f"OpenAI API request failed: {e}\n{traceback.format_exc()}", "ERROR")
+        return None
+
+def chatgpt_text_to_text(*, prompt=None, **kwargs):
+    """Send text to ChatGPT and get response"""
+    if prompt is not None:
+        payload = {
+            "model": kwargs.get("model", "gpt-4.1"),
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        payload.update({k: v for k, v in kwargs.items() if k not in ("model",)})
+    else:
+        payload = kwargs
+    return send_openai_request('chat/completions', payload)
 
 memory_prompt = '''
 You are a memory assistant for an AI voice assistant named "Computer". Your job is to maintain a short, compressed memory of conversations between Computer and Tristan.
